@@ -250,7 +250,10 @@ reset_ownership_in_dir() {
 detect_number_of_cpus_and_set_makejcmd() {
     DETECTEDCPUCOUNT=`$BUILDDIR/packaging/get_cpu_count.sh`
     CPUCOUNT=$(( $DETECTEDCPUCOUNT + 3 ))
-    MAKEJCMD="make -j $CPUCOUNT"
+
+    # kdj: hack this to 4 for Travis (not configurable)
+    # MAKEJCMD="make -j $CPUCOUNT"
+    MAKEJCMD="make -j 4"
 
     # print out detected CPU information
     echo "${text_cyan}${text_bold}-------------------------------------"
