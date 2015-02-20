@@ -432,6 +432,7 @@ extern "C" {
                     // make call to umask & open for create
                     mode_t myMask = umask( ( mode_t ) 0000 );
                     int    fd     = open( fco->physical_path().c_str(), O_RDWR | O_CREAT | O_EXCL, fco->mode() );
+                    int errsav = errno;
 
                     // =-=-=-=-=-=-=-
                     // reset the old mask
@@ -448,6 +449,7 @@ extern "C" {
                         // make call to umask & open for create
                         mode_t myMask = umask( ( mode_t ) 0000 );
                         fd = open( fco->physical_path().c_str(), O_RDWR | O_CREAT | O_EXCL, fco->mode() );
+                        errsav = errno;
                         if ( null_fd >= 0 ) {
                             close( null_fd );
                         }
@@ -459,25 +461,26 @@ extern "C" {
                     }
 
                     // =-=-=-=-=-=-=-
-                    // cache file descriptor in out-variable
-                    fco->file_descriptor( fd );
-
-                    // =-=-=-=-=-=-=-
                     // trap error case with bad fd
                     if ( fd < 0 ) {
-                        int status = UNIX_FILE_CREATE_ERR - errno;
-                        if ( !( result = ASSERT_ERROR( fd >= 0, UNIX_FILE_CREATE_ERR - errno, "create error for \"%s\", errno = \"%s\", status = %d",
-                                                       fco->physical_path().c_str(), strerror( errno ), status ) ).ok() ) {
-
-                            // =-=-=-=-=-=-=-
-                            // WARNING :: Major Assumptions are made upstream and use the FD also as a
-                            //         :: Status, if this is not done EVERYTHING BREAKS!!!!111one
-                            fco->file_descriptor( status );
-                            result.code( status );
-                        }
-                        else {
-                            result.code( fd );
-                        }
+                        int status = UNIX_FILE_CREATE_ERR - errsav;
+                        std::stringstream msg;
+                        msg << "create error for \"";
+                        msg << fco->physical_path();
+                        msg << "\", errno = \"";
+                        msg << strerror( errsav );
+                        msg << "\".";
+                        // =-=-=-=-=-=-=-
+                        // WARNING :: Major Assumptions are made upstream and use the FD also as a
+                        //         :: Status, if this is not done EVERYTHING BREAKS!!!!111one
+                        fco->file_descriptor( status );
+                        result = ERROR( status, msg.str() );
+                    }
+                    else {
+                        // =-=-=-=-=-=-=-
+                        // cache file descriptor in out-variable
+                        fco->file_descriptor( fd );
+                        result.code( fd );
                     }
                 }
             }
@@ -518,6 +521,7 @@ extern "C" {
             // make call to open
             errno = 0;
             int fd = open( fco->physical_path().c_str(), flags, fco->mode() );
+            int errsav = errno;
 
             // =-=-=-=-=-=-=-
             // if we got a 0 descriptor, try again
@@ -525,6 +529,7 @@ extern "C" {
                 close( fd );
                 int null_fd = open( "/dev/null", O_RDWR, 0 );
                 fd = open( fco->physical_path().c_str(), flags, fco->mode() );
+                errsav = errno;
                 if ( null_fd >= 0 ) {
                     close( null_fd );
                 }
@@ -532,17 +537,25 @@ extern "C" {
             }
 
             // =-=-=-=-=-=-=-
-            // cache status in the file object
-            fco->file_descriptor( fd );
-
-            // =-=-=-=-=-=-=-
-            // did we still get an error?
-            int status = UNIX_FILE_OPEN_ERR - errno;
-            if ( !( result = ASSERT_ERROR( fd >= 0, status, "Open error for \"%s\", errno = \"%s\", status = %d, flags = %d.",
-                                           fco->physical_path().c_str(), strerror( errno ), status, flags ) ).ok() ) {
-                result.code( status );
+            // trap error case with bad fd
+            if ( fd < 0 ) {
+                int status = UNIX_FILE_CREATE_ERR - errsav;
+                std::stringstream msg;
+                msg << "Open error for \"";
+                msg << fco->physical_path();
+                msg << "\", errno = \"";
+                msg << strerror( errsav );
+                msg << "\", status = \"";
+                msg << status;
+                msg << "\", flags = \"";
+                msg << flags;
+                msg << "\".";
+                result = ERROR( status, msg.str() );
             }
             else {
+                // =-=-=-=-=-=-=-
+                // cache status in the file object
+                fco->file_descriptor( fd );
                 result.code( fd );
             }
         }
@@ -849,29 +862,43 @@ extern "C" {
         // =-=-=-=-=-=-=-
         // Check the operation parameters and update the physical path
         irods::error ret = unix_check_params_and_path< irods::collection_object >( _ctx );
-        if ( ( result = ASSERT_PASS( ret, "Invalid parameters or physical path." ) ).ok() ) {
-
-            // =-=-=-=-=-=-=-
-            // cast down the chain to our understood object type
-            irods::collection_object_ptr fco = boost::dynamic_pointer_cast< irods::collection_object >( _ctx.fco() );
-
-            // =-=-=-=-=-=-=-
-            // make the call to opendir
-            DIR* dir_ptr = opendir( fco->physical_path().c_str() );
-
-            // =-=-=-=-=-=-=-
-            // cache status in out variable
-            int err_status = UNIX_FILE_OPENDIR_ERR - errno;
-
-            // =-=-=-=-=-=-=-
-            // return an error if necessary
-            if ( ( result = ASSERT_ERROR( NULL != dir_ptr, err_status, "Opendir error for \"%s\", errno = \"%s\", status = %d.",
-                                          fco->physical_path().c_str(), strerror( errno ), err_status ) ).ok() ) {
-                // =-=-=-=-=-=-=-
-                // cache dir_ptr & status in out variables
-                fco->directory_pointer( dir_ptr );
-            }
+        if ( !ret.ok() ) {
+            return PASSMSG( "Invalid parameters or physical path.", ret );
         }
+
+        // =-=-=-=-=-=-=-
+        // cast down the chain to our understood object type
+        irods::collection_object_ptr fco = boost::dynamic_pointer_cast< irods::collection_object >( _ctx.fco() );
+
+        // =-=-=-=-=-=-=-
+        // make the call to opendir
+        DIR* dir_ptr = opendir( fco->physical_path().c_str() );
+        int errsav = errno;
+
+        // =-=-=-=-=-=-=-
+        // cache status in out variable
+        int err_status = UNIX_FILE_OPENDIR_ERR - errno;
+
+        // =-=-=-=-=-=-=-
+        // trap error case with bad fd
+        if ( NULL == dir_ptr ) {
+            int status = UNIX_FILE_CREATE_ERR - errsav;
+            std::stringstream msg;
+            msg << "Open error for \"";
+            msg << fco->physical_path();
+            msg << "\", errno = \"";
+            msg << strerror( errsav );
+            msg << "\", status = \"";
+            msg << status;
+            msg << "\".";
+            result = ERROR( status, msg.str() );
+        }
+        else {
+            // =-=-=-=-=-=-=-
+            // cache dir_ptr in the out-variable
+            fco->directory_pointer( dir_ptr );
+        }
+
 
         return result;
 
