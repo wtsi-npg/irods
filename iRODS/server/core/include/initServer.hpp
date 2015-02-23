@@ -170,9 +170,6 @@ printServerHost( rodsServerHost_t *myServerHost );
 int
 printZoneInfo();
 int
-getAndConnRcatHost( rsComm_t *rsComm, int rcatType, char *rcatZoneHint,
-                    rodsServerHost_t **rodsServerHost );
-int
 getAndConnRcatHostNoLogin( rsComm_t *rsComm, int rcatType, char *rcatZoneHint,
                            rodsServerHost_t **rodsServerHost );
 int
