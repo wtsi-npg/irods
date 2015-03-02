@@ -211,12 +211,11 @@ renameLocalPath( PathCacheTable *pctable, char *from, char *to, char *toIrodsPat
 
     /* do not check existing path here as path cache may be out of date */
     pathCache_t *fromPathCache = matchPathCache( pctable, from );
-    if ( fromPathCache ) {
+    if ( NULL == fromPathCache ) {
         return 0;
     }
     LOCK_STRUCT( *fromPathCache );
 
-    LOCK( *pctable -> PathCacheLock );
     if ( fromPathCache->fileCache != NULL ) {
         LOCK_STRUCT( *( fromPathCache->fileCache ) );
         free( fromPathCache->fileCache->localPath );
@@ -227,6 +226,7 @@ renameLocalPath( PathCacheTable *pctable, char *from, char *to, char *toIrodsPat
     }
 
     pathCache_t *tmpPathCache = NULL;
+    LOCK( *pctable -> PathCacheLock );
     pathReplace( pctable, ( char * ) to, fromPathCache->fileCache, &fromPathCache->stbuf, &tmpPathCache );
 
     pathNotExist( pctable, ( char * ) from );

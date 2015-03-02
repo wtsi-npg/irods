@@ -339,7 +339,7 @@ getDataObjInfo(
         rstrcpy( dataObjInfo->dataOwnerZone, tmpDataOwnerZone, NAME_LEN );
         dataObjInfo->replNum = atoi( tmpReplNum );
         dataObjInfo->replStatus = atoi( tmpReplStatus );
-        rstrcpy( dataObjInfo->statusString, tmpStatusString, LONG_NAME_LEN );
+        rstrcpy( dataObjInfo->statusString, tmpStatusString, NAME_LEN );
         dataObjInfo->dataId = strtoll( tmpDataId, 0, 0 );
         dataObjInfo->collId = strtoll( tmpCollId, 0, 0 );
         dataObjInfo->dataMapId = atoi( tmpDataMapId );
@@ -347,7 +347,7 @@ getDataObjInfo(
         rstrcpy( dataObjInfo->dataExpiry, tmpDataExpiry, TIME_LEN );
         rstrcpy( dataObjInfo->dataCreate, tmpDataCreate, TIME_LEN );
         rstrcpy( dataObjInfo->dataModify, tmpDataModify, TIME_LEN );
-        rstrcpy( dataObjInfo->dataMode, tmpDataMode, NAME_LEN );
+        rstrcpy( dataObjInfo->dataMode, tmpDataMode, SHORT_STR_LEN );
         dataObjInfo->writeFlag = writeFlag;
 
         dataObjInfo->next = 0;
@@ -857,7 +857,7 @@ sortObjInfoForRepl(
     const char*     dst_resc_hier ) {
     // =-=-=-=-=-=-=-
     // trap bad pointers
-    if ( !*dataObjInfoHead ) {
+    if ( !dataObjInfoHead || !*dataObjInfoHead ) {
         return SYS_INVALID_INPUT_PARAM;
     }
 
@@ -1499,7 +1499,7 @@ resolveInfoForTrim( dataObjInfo_t **dataObjInfoHead,
     condFlag = status;  /* cond exist if condFlag > 0 */
 
     if ( matchedDataObjInfo == NULL && matchedOldDataObjInfo == NULL ) {
-        if ( dataObjInfoHead != NULL && condFlag == 0 ) {
+        if ( condFlag == 0 ) {
             /* at least have some good copies */
             /* see if we can trim some old copies */
             matchedOldDataObjInfo = oldDataObjInfoHead;
@@ -1510,10 +1510,8 @@ resolveInfoForTrim( dataObjInfo_t **dataObjInfoHead,
         }
         else {
             /* don't trim anything */
-            if ( dataObjInfoHead != NULL ) {
-                freeAllDataObjInfo( *dataObjInfoHead );
-                *dataObjInfoHead = NULL; // JMC cppcheck - nullptr
-            }
+            freeAllDataObjInfo( *dataObjInfoHead );
+            *dataObjInfoHead = NULL; // JMC cppcheck - nullptr
             freeAllDataObjInfo( oldDataObjInfoHead );
             return 0;
         }

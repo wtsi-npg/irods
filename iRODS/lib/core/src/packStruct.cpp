@@ -1795,6 +1795,7 @@ packChildStruct( void **inPtr, packedOutput_t *packedOutput,
 
         status = parsePackInstruct( ( const char* )packInstruct, &packItemHead );
         if ( status < 0 ) {
+            freePackedItem( packItemHead );
             return status;
         }
         /* link it */
@@ -2637,7 +2638,7 @@ unpackXmlDoubleToOutPtr( void **inPtr, void **outPtr, int numElement,
 
     if ( *inPtr == NULL ) {
         /* a NULL pointer, fill the array with 0 */
-        memset( *inPtr, 0, sizeof( rodsLong_t ) * numElement );
+        memset( *outPtr, 0, sizeof( rodsLong_t ) * numElement );
     }
     else {
         for ( i = 0; i < numElement; i++ ) {
