@@ -1309,6 +1309,7 @@ Res *smsi_str( Node** params, int, Node* node, ruleExecInfo_t*, int, Env*, rErro
         memcpy( tmp, buf->buf, len );
         tmp[len] = '\0';
         res = newStringRes( r, tmp );
+        free( tmp );
     }
     else if ( TYPE( val ) == T_IRODS && strcmp( val->exprType->text, KeyValPair_MS_T ) == 0 ) {
         int size = 1024;
@@ -1964,10 +1965,10 @@ int writeStringNew( char *writeId, char *writeStr, Env* env, Region* r, ruleExec
         insertIntoHashTable( global->current, "ruleExecOut", execOutRes );
     }
 
-    if ( !strcmp( writeId, "stdout" ) ) {
+    if ( writeId && !strcmp( writeId, "stdout" ) ) {
         appendToByteBufNew( &( myExecCmdOut->stdoutBuf ), ( char * ) writeStr );
     }
-    else if ( !strcmp( writeId, "stderr" ) ) {
+    else if ( writeId && !strcmp( writeId, "stderr" ) ) {
         appendToByteBufNew( &( myExecCmdOut->stderrBuf ), ( char * ) writeStr );
     }
     return 0;

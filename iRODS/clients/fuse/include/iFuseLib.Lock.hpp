@@ -10,7 +10,6 @@
  * DescLock
  * iFuseDesc
  * FileCache
- * iFuseConn.inuseLock
  * iFuseConn struct
  * lock for concurrent queue in iFuseLib.Conn.c
  *
@@ -42,12 +41,14 @@ typedef struct ConcurrentList {
 extern boost::mutex* PathCacheLock;
 extern boost::thread*            ConnManagerThr;
 extern boost::mutex*             ConnManagerLock;
+extern boost::mutex*             WaitForConnLock;
 extern boost::condition_variable ConnManagerCond;
 #else
 #include <pthread.h>
 extern pthread_mutex_t PathCacheLock;
 extern pthread_t ConnManagerThr;
 extern pthread_mutex_t ConnManagerLock;
+extern pthread_mutex_t WaitForConnLock;
 extern pthread_cond_t ConnManagerCond;
 #endif
 
@@ -171,7 +172,7 @@ int listSize( concurrentList_t *l );
 iFuseConn_t *getAndUseConnByPath( char *localPath, int *status );
 int lookupPathNotExist( PathCacheTable *pctable, char *inPath );
 int lookupPathExist( PathCacheTable *pctable, char *inPath, pathCache_t **paca );
-int matchAndLockPathCache( PathCacheTable *pctable, char *inPath, pathCache_t **outPathCache );
+pathCache_t *matchPathCache( PathCacheTable *pctable, const char *inPath );
 int updatePathCacheStatFromFileCache( pathCache_t *tmpPathCache );
 int clearPathFromCache( PathCacheTable *pctable, char *inPath );
 int pathNotExist( PathCacheTable *pctable, char *inPath );

@@ -294,7 +294,8 @@ int msiAdmReadDVMapsFromFileIntoStruct( msParam_t *inDvmFileNameParam, msParam_t
     }
     i = readDVarStructFromFile( ( char* ) inDvmFileNameParam->inOutStruct, coreDVMapStrct );
     if ( i != 0 ) {
-        if ( strcmp( outCoreDVMapStruct->type, DVMapStruct_MS_T ) != 0 ) {
+        if ( outCoreDVMapStruct->type == NULL ||
+                strcmp( outCoreDVMapStruct->type, DVMapStruct_MS_T ) != 0 ) {
             free( coreDVMapStrct );
         }
         return i;
@@ -584,7 +585,8 @@ int msiAdmReadFNMapsFromFileIntoStruct( msParam_t *inFnmFileNameParam, msParam_t
     }
     i = readFuncMapStructFromFile( ( char* ) inFnmFileNameParam->inOutStruct, coreFNMapStrct );
     if ( i != 0 ) {
-        if ( strcmp( outCoreFNMapStruct->type, FNMapStruct_MS_T ) != 0 ) {
+        if ( outCoreFNMapStruct->type == NULL ||
+                strcmp( outCoreFNMapStruct->type, FNMapStruct_MS_T ) != 0 ) {
             free( coreFNMapStrct );
         }
         return i;

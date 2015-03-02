@@ -23,7 +23,7 @@ irods::error usage() {
     std::cout << "action: ( required ) status, pause, resume, shutdown" << std::endl;
     std::cout << "option: --force-after=seconds or --wait-forever" << std::endl;
     std::cout << "target: ( required ) --all, --hosts=\"<fqdn1>, <fqdn2>, ...\"" << std::endl;
-    
+
     return ERROR(
                SYS_INVALID_INPUT_PARAM,
                "usage" );
@@ -72,35 +72,41 @@ irods::error parse_program_options(
     // capture the 'subcommand' or 'action' to perform on the grid
     irods::control_plane_command cmd;
     if( vm.count( "action" ) ) {
-        const std::string& action = vm["action"].as<std::string>();
- 
-        boost::unordered_map< std::string, std::string > cmd_map;
-        cmd_map[ "status"   ] = irods::SERVER_CONTROL_STATUS;
-        cmd_map[ "pause"    ] = irods::SERVER_CONTROL_PAUSE;
-        cmd_map[ "resume"   ] = irods::SERVER_CONTROL_RESUME;
-        cmd_map[ "shutdown" ] = irods::SERVER_CONTROL_SHUTDOWN;
+        try {
+            const std::string& action = vm["action"].as<std::string>();
+            boost::unordered_map< std::string, std::string > cmd_map;
+            cmd_map[ "status"   ] = irods::SERVER_CONTROL_STATUS;
+            cmd_map[ "pause"    ] = irods::SERVER_CONTROL_PAUSE;
+            cmd_map[ "resume"   ] = irods::SERVER_CONTROL_RESUME;
+            cmd_map[ "shutdown" ] = irods::SERVER_CONTROL_SHUTDOWN;
 
-        if ( cmd_map.end() == cmd_map.find( action ) ) {
-            std::cout << "invalid subcommand ["
-                      << action
-                      << "]"
-                      << std::endl;
-            return usage();
+            if ( cmd_map.end() == cmd_map.find( action ) ) {
+                std::cout << "invalid subcommand ["
+                    << action
+                    << "]"
+                    << std::endl;
+                return usage();
 
-        }       
-    
-        _cmd.command = cmd_map[ action ];
+            }
 
+            _cmd.command = cmd_map[ action ];
+        } catch ( const boost::bad_any_cast& ) {
+            return ERROR( INVALID_ANY_CAST, "Attempt to cast vm[\"action\"] to std::string failed." );
+        }
     } else {
         return usage();
 
     }
 
     if( vm.count( "force-after" ) ) {
-        size_t secs = vm[ "force-after" ].as<size_t>();
-        std::stringstream ss; ss << secs;
-        _cmd.options[ irods::SERVER_CONTROL_FORCE_AFTER_KW ] =
-            ss.str();
+        try {
+            size_t secs = vm[ "force-after" ].as<size_t>();
+            std::stringstream ss; ss << secs;
+            _cmd.options[ irods::SERVER_CONTROL_FORCE_AFTER_KW ] =
+                ss.str();
+        } catch ( const boost::bad_any_cast& ) {
+            return ERROR( INVALID_ANY_CAST, "Attempt to cast vm[\"force-after\"] to std::string failed." );
+        }
     } else if( vm.count( "wait-forever" ) ) {
         _cmd.options[ irods::SERVER_CONTROL_WAIT_FOREVER_KW ] =
             "keep_waiting";
@@ -114,11 +120,17 @@ irods::error parse_program_options(
 
     } else if( vm.count( "hosts" ) ) {
         std::vector< std::string > hosts;
+        try {
         boost::split(
             hosts,
             vm[ "hosts" ].as<std::string>(),
             boost::is_any_of( "," ),
             boost::token_compress_on );
+        } catch ( const boost::bad_function_call& ) {
+            return ERROR( BAD_FUNCTION_CALL, "Boost threw bad_function_call." );
+        } catch ( const boost::bad_any_cast& ) {
+            return ERROR( INVALID_ANY_CAST, "Attempt to cast vm[\"force-after\"] to std::string failed." );
+        }
 
         for( size_t i = 0;
              i < hosts.size();
@@ -256,47 +268,68 @@ int main(
 
     }
 
-    // standard zmq rep-req communication pattern
-    zmq::context_t zmq_ctx( 1 );
-    zmq::socket_t  zmq_skt( zmq_ctx, ZMQ_REQ );
-
     // this is the client so we connect rather than bind
     std::stringstream port_sstr;
     port_sstr << env.irodsCtrlPlanePort;
     std::string bind_str( "tcp://localhost:" );
     bind_str += port_sstr.str();
-    zmq_skt.connect( bind_str.c_str() );
+    try {
+        // standard zmq rep-req communication pattern
+        zmq::context_t zmq_ctx( 1 );
+        zmq::socket_t  zmq_skt( zmq_ctx, ZMQ_REQ );
+        try {
+            zmq_skt.connect( bind_str.c_str() );
+        } catch( const zmq::error_t& ) {
+            printf( "ZeroMQ encountered an error connecting to a socket." );
+            return -1;
+        }
 
-    // copy binary encoding into a zmq message for transport
-    zmq::message_t rep( data_to_send.size() );
-    memcpy(
-        rep.data(),
-        data_to_send.data(),
-        data_to_send.size() );
-    zmq_skt.send( rep );
+        // copy binary encoding into a zmq message for transport
+        zmq::message_t rep( data_to_send.size() );
+        memcpy(
+                rep.data(),
+                data_to_send.data(),
+                data_to_send.size() );
+        try {
+            zmq_skt.send( rep );
+        } catch( const zmq::error_t& ) {
+            printf( "ZeroMQ encountered an error receiving a message." );
+            return -1;
+        }
 
-    // wait for the server reponse
-    zmq::message_t req;
-    zmq_skt.recv( &req );
 
-    // decrypt the response
-    std::string rep_str;
-    ret = decrypt_response(
-              env,
-              static_cast< const uint8_t* >( req.data() ),
-              req.size(),
-              rep_str );
-    if ( !ret.ok() ) {
-        irods::error err = PASS( ret );
-        std::cout << err.result()
-                  << std::endl;
+        zmq::message_t req;
+        // wait for the server reponse
+        try {
+            zmq_skt.recv( &req );
+        } catch( const zmq::error_t& ) {
+            printf( "ZeroMQ encountered an error receiving a message." );
+            return -1;
+        }
+
+        // decrypt the response
+        std::string rep_str;
+        ret = decrypt_response(
+                env,
+                static_cast< const uint8_t* >( req.data() ),
+                req.size(),
+                rep_str );
+        if ( !ret.ok() ) {
+            irods::error err = PASS( ret );
+            std::cout << err.result()
+                << std::endl;
+            return -1;
+
+        }
+
+        if ( irods::SERVER_CONTROL_SUCCESS != rep_str ) {
+            std::cout << rep_str.data()
+                << std::endl;
+        }
+    } catch( const zmq::error_t& ) {
+        printf( "ZeroMQ encountered an error." );
+        printf( "ZeroMQ encountered an error sending a message." );
         return -1;
-
-    }
-
-    if ( irods::SERVER_CONTROL_SUCCESS != rep_str ) {
-        std::cout << rep_str.data()
-            << std::endl;
     }
 
     return 0;
