@@ -1,11 +1,7 @@
 
 before_install:
   - sudo apt-get update -qq
-  - sudo apt-get install help2man unixodbc unixodbc-dev libfuse-dev libpam0g-dev rst2pdf
-  - sudo apt-get install cpanminus
-
-install:
-  - sudo cpanm --notest JSON
+  - sudo apt-get install help2man unixodbc unixodbc-dev libfuse-dev libpam0g-dev libjson-perl libproc-dev rst2pdf
 
 language: cpp
 
@@ -17,7 +13,7 @@ env:
     - secure: wT+mlz6KKv6R34shGN6pmiKuQFKKZ8xqHOWTiK4Yob3OcIgZXQT6sXm7Q7dDwMikx3YgipiSkCwksHVgem0bT3Z7YTja8RdIlVHCtY6khAXFd7fLNEwQR35j4HI+WEXr2VrhOFPDsOZdL70TDdeze80csAy3u2bMEXqg7xG0lVg=
 
 script:
-  - ./packaging/build.sh -j 2 icat postgres
+  - ./packaging/build.sh -j 4 icat postgres
 
 after_success:
   - ls ./build
