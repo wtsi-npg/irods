@@ -36,6 +36,8 @@ SVR_CORE_OBJS =	\
 		$(svrCoreObjDir)/dataObjOpr.o \
 		$(svrCoreObjDir)/fileOpr.o \
 		$(svrCoreObjDir)/initServer.o \
+		$(svrCoreObjDir)/rodsConnect.o \
+		$(svrCoreObjDir)/procLog.o \
 		$(svrCoreObjDir)/miscServerFunct.o \
 		$(svrCoreObjDir)/objMetaOpr.o \
 		$(svrCoreObjDir)/rsApiHandler.o \
@@ -79,9 +81,9 @@ DB_IFACE_OBJS = \
 		$(svrCoreObjDir)/irods_oracle_object.o  \
 		$(svrCoreObjDir)/readServerConfig.o
 
-DB_PLUGIN_OBJ = $(svrCoreObjDir)/irods_database_plugin.o 
+DB_PLUGIN_OBJ = $(svrCoreObjDir)/irods_database_plugin.o
 DB_PLUGIN_SRC = $(buildDir)/server/core/src/irods_database_plugin.cpp
-DB_PLUGIN_OBJ_WITH_NO_RE = $(svrCoreObjDir)/irods_database_plugin_with_no_re.o 
+DB_PLUGIN_OBJ_WITH_NO_RE = $(svrCoreObjDir)/irods_database_plugin_with_no_re.o
 
 
 INCLUDES +=	-I$(svrCoreIncDir) -I$(libHasherIncDir)
@@ -117,7 +119,7 @@ INCLUDES +=	-I$(svrIcatIncDir)
 ifdef RODS_CAT
 CFLAGS +=	-DRODS_CAT
 SVR_ICAT_OBJS =	\
-		$(svrIcatObjDir)/icatHighLevelRoutines.o 
+		$(svrIcatObjDir)/icatHighLevelRoutines.o
 
 INCLUDES +=	-I$(svrIcatIncDir)
 
@@ -241,14 +243,14 @@ OBJS =		$(SVR_CORE_OBJS) $(SVR_DRIVERS_OBJS) $(SVR_API_OBJS) \
 CFLAGS_OPTIONS := $(CFLAGS) $(MY_CFLAG)
 CFLAGS =	$(CFLAGS_OPTIONS) $(INCLUDES) $(LIB_INCLUDES)
 
-LDFLAGS +=	$(LIBRARY) $(LDADD) 
+LDFLAGS +=	$(LIBRARY) $(LDADD)
 
 #
 # Princpal Targets
 #
 .PHONY:	all clean config server servers bin test tests print_cflags print_ldflags
 vpath %cpp %c 	$(svrCoreSrcDir) $(svrDriversSrcDir) $(svrApiSrcDir) \
-		$(svrIcatSrcDir) $(svrReSrcDir) 
+		$(svrIcatSrcDir) $(svrReSrcDir)
 
 
 
@@ -304,6 +306,28 @@ LDFLAGS += $(buildDir)/../external/$(ZEROMQVERSION)/src/.libs/libzmq.a
 
 INCLUDES +=	-I$(buildDir)/../external/$(AVROVERSION)
 LDFLAGS += $(buildDir)/../external/$(AVROVERSION)/build/libavrocpp_s.a -lz
+
+INCLUDES += -I/usr/include/proc
+
+FILE_TO_CHECK=/usr/lib/x86_64-linux-gnu/libprocps.so
+ifneq ("$(wildcard $(FILE_TO_CHECK))","")
+LDFLAGS += -lprocps
+endif
+
+FILE_TO_CHECK=/usr/lib/libproc.so
+ifneq ("$(wildcard $(FILE_TO_CHECK))","")
+LDFLAGS += -lproc
+endif
+
+FILE_TO_CHECK=/lib64/libprocps.so
+ifneq ("$(wildcard $(FILE_TO_CHECK))","")
+LDFLAGS += -lprocps
+endif
+
+FILE_TO_CHECK=/lib64/libproc.so
+ifneq ("$(wildcard $(FILE_TO_CHECK))","")
+LDFLAGS += -lproc
+endif
 
 
 # Clean
@@ -385,8 +409,8 @@ $(serverBinDir)/irodsReServer: db_plugin_with_re $(svrCoreObjDir)/irodsReServer.
 
 # RODS
 $(svrCoreObjDir)/rodsServer.o: $(svrCoreObjDir)/%.o: $(svrCoreSrcDir)/%.cpp $(LIBRARY) $(OBJS) $(BOOST_LIBS)
-	@echo "Compile rods server `basename $@`..."
-	@$(CC) -c $(CFLAGS) -o $@ $<
+	echo "Compile rods server `basename $@`..."
+	$(CC) -c $(CFLAGS) -o $@ $<
 
 $(serverBinDir)/irodsServer: db_plugin_with_re $(svrCoreObjDir)/rodsServer.o $(LIBRARY) $(OBJS) $(BOOST_LIBS)
 	@echo "Link rods server `basename $@`..."
@@ -399,6 +423,7 @@ $(svrCoreObjDir)/irodsXmsgServer.o: $(svrCoreObjDir)/%.o: $(svrCoreSrcDir)/%.cpp
 
 $(serverBinDir)/irodsXmsgServer: db_plugin_with_re $(svrCoreObjDir)/irodsXmsgServer.o $(LIBRARY) $(OBJS) $(BOOST_LIBS)
 	@echo "Link xmsg server `basename $@`..."
+	@echo "LDFLAGS $(LDFLAGS) $@"
 	@$(LDR) -o $@ $(svrCoreObjDir)/irodsXmsgServer.o $(LIBRARY) $(OBJS) $(DB_PLUGIN_OBJ) $(BOOST_LIBS) $(LDFLAGS)
 
 
@@ -416,14 +441,14 @@ $(serverBinDir)/PamAuthCheck: $(svrAuthObjDir)/PamAuthCheck.o
 #
 # Tests
 #
-$(TEST_OBJS):	$(svrTestObjDir)/%.o: $(svrTestSrcDir)/%.cpp $(DEPEND) $(BOOST_LIBS) 
+$(TEST_OBJS):	$(svrTestObjDir)/%.o: $(svrTestSrcDir)/%.cpp $(DEPEND) $(BOOST_LIBS)
 	@echo "Compile server test `basename $@`..."
 	@$(CC) -c $(CFLAGS) -o $@ $<
 
 # reTest
 $(svrTestBinDir)/reTest: $(svrTestObjDir)/reTest.o $(OBJS) $(BOOST_LIBS) $(BOOST_LIBS)
 	@echo "Link server test `basename $@`..."
-	@$(LDR) -o $@ $^ $(LDFLAGS) $(BOOST_LIBS) 
+	@$(LDR) -o $@ $^ $(LDFLAGS) $(BOOST_LIBS)
 
 # chl
 $(svrTestBinDir)/test_chl: db_plugin_with_no_re $(svrTestObjDir)/test_chl.o $(SVR_ICAT_OBJS) $(LIBRARY) $(BOOST_LIBS) $(DB_IFACE_OBJS)
@@ -433,7 +458,7 @@ $(svrTestBinDir)/test_chl: db_plugin_with_no_re $(svrTestObjDir)/test_chl.o $(SV
 #
 # Rule Admin Targets
 #
-ruleadmin:: $(serverBinDir)/ruleAdmin 
+ruleadmin:: $(serverBinDir)/ruleAdmin
 	@cp $(serverBinDir)/ruleAdmin /misc/www/projects/srb-secure/cgi-bin/ruleAdminRaja.cgi
 
 $(svrCoreObjDir)/ruleAdmin.o: $(svrCoreObjDir)/%.o: %.cpp $(LIBRARY) $(OBJS)
@@ -441,4 +466,3 @@ $(svrCoreObjDir)/ruleAdmin.o: $(svrCoreObjDir)/%.o: %.cpp $(LIBRARY) $(OBJS)
 
 $(serverBinDir)/ruleAdmin: $(svrCoreObjDir)/ruleAdmin.o $(LIBRARY) $(OBJS)
 	@$(LDR) -o $@ $^ $(LDFLAGS)
-

@@ -32,22 +32,18 @@ static pthread_mutex_t my_mutex;
 short threadIsAlive[MAX_NSERVERS];
 
 int rodsMonPerfLog( char *serverName, char *resc, char *output, ruleExecInfo_t *rei ) {
-
     char condstr[MAX_NAME_LEN], fname[MAX_NAME_LEN], msg[MAX_MESSAGE_SIZE],
-         monStatus[MAX_NAME_LEN], suffix[MAX_VALUE], *result;
+         monStatus[MAX_NAME_LEN], suffix[MAX_VALUE];
     const char *delim1 = "#";
     const char *delim2 = ",";
-    int index, timestamp, rc1 = 0, rc2 = 0, rc3 = 0, rc4 = 0;
-    FILE *foutput;
-    time_t tps;
+    int rc1 = 0, rc2 = 0, rc3 = 0, rc4 = 0;
     generalRowInsertInp_t generalRowInsertInp;
     generalAdminInp_t generalAdminInp1, generalAdminInp2;
     genQueryInp_t genQueryInp;
-    struct tm *now;
 
     genQueryOut_t *genQueryOut = NULL;
-    tps = time( NULL );
-    now = localtime( &tps );
+    time_t tps = time( NULL );
+    struct tm *now = localtime( &tps );
 
     /* a quick test in order to see if the resource is up or down (needed to update the "status" metadata) */
     if ( strcmp( output, MON_OUTPUT_NO_ANSWER ) == 0 ) {
@@ -56,28 +52,36 @@ int rodsMonPerfLog( char *serverName, char *resc, char *output, ruleExecInfo_t *
     else {
         strncpy( monStatus, RESC_AUTO_UP, MAX_NAME_LEN );
     }
-
     std::vector<std::string> output_tokens;
     boost::algorithm::split( output_tokens, output, boost::is_any_of( delim1 ) );
+    output_tokens.erase(output_tokens.begin()); // output has leading delimiter
+    if (output_tokens.size() != 9) {
+        rodsLog( LOG_ERROR, "rodsMonPerfLog: output_tokens is of incorrect size: size [%ju], output [%s]", (uintmax_t)output_tokens.size(), output );
+        return -1;
+    }
     std::vector<std::string> resc_tokens;
     boost::algorithm::split( resc_tokens, resc, boost::is_any_of( delim2 ) );
     std::vector<std::string> disk_tokens;
     boost::algorithm::split( disk_tokens, output_tokens[4], boost::is_any_of( delim2 ) );
     std::vector<std::string> value_tokens;
     boost::algorithm::split( value_tokens, output_tokens[7], boost::is_any_of( delim2 ) );
-    index = 0;
-    while ( !resc_tokens[index].empty() ) {
+    if (resc_tokens.size() != disk_tokens.size() || resc_tokens.size() != value_tokens.size()) {
+        rodsLog( LOG_ERROR, "rodsMonPerfLog: resc_tokens [%ju], disk_tokens [%ju], value_tokens [%ju]. output [%s]", (uintmax_t)resc_tokens.size(), (uintmax_t)disk_tokens.size(), (uintmax_t)value_tokens.size(), output );
+        return -1;
+    }
+
+    for (std::vector<std::string>::size_type index=0; index<resc_tokens.size(); ++index) {
         if ( strcmp( monStatus, RESC_AUTO_DOWN ) == 0 ) {
             disk_tokens[index] = "-1";
             value_tokens[index] = "-1";
         }
-        sprintf( msg, "server=%s resource=%s cpu=%s, mem=%s, swp=%s, rql=%s, dsk=%s, nin=%s, nout=%s, dskAv(MB)=%s\n",
+        snprintf( msg, sizeof(msg), "server=%s resource=%s cpu=%s, mem=%s, swp=%s, rql=%s, dsk=%s, nin=%s, nout=%s, dskAv(MB)=%s\n",
                  serverName, resc_tokens[index].c_str(), output_tokens[0].c_str(), output_tokens[1].c_str(), output_tokens[2].c_str(),
                  output_tokens[3].c_str(), disk_tokens[index].c_str(), output_tokens[5].c_str(), output_tokens[6].c_str(), value_tokens[index].c_str() );
-        sprintf( suffix, "%d.%d.%d", now->tm_year + 1900, now->tm_mon + 1, now->tm_mday );
-        sprintf( fname, "%s.%s", OUTPUT_MON_PERF, suffix );
+        snprintf( suffix, sizeof(suffix), "%d.%d.%d", now->tm_year + 1900, now->tm_mon + 1, now->tm_mday );
+        snprintf( fname, sizeof(fname), "%s.%s", OUTPUT_MON_PERF, suffix );
         /* retrieve the system time */
-        timestamp = time( &tps );
+        const time_t timestamp = time( &tps );
 
         /* log the result into the database as well */
         generalRowInsertInp.tableName = "serverload";
@@ -110,9 +114,9 @@ int rodsMonPerfLog( char *serverName, char *resc, char *output, ruleExecInfo_t *
         pthread_mutex_lock( &my_mutex );
 #endif
         /* append to the output log file */
-        foutput = fopen( fname, "a" );
+        FILE *foutput = fopen( fname, "a" );
         if ( foutput != NULL ) {
-            fprintf( foutput, "time=%i %s", timestamp, msg );
+            fprintf( foutput, "time=%ji %s", (intmax_t)timestamp, msg );
             // fclose(foutput); // JMC cppcheck - nullptr // cannot close it here. it is used later - hcj
         }
 
@@ -120,7 +124,7 @@ int rodsMonPerfLog( char *serverName, char *resc, char *output, ruleExecInfo_t *
         rc2 = rsGeneralAdmin( rei->rsComm, &generalAdminInp1 );
         rc3 = rsGenQuery( rei->rsComm, &genQueryInp, &genQueryOut );
         if ( rc3 >= 0 ) {
-            result = genQueryOut->sqlResult[0].value;
+            const char *result = genQueryOut->sqlResult[0].value;
             if ( strcmp( result, "\0" ) == 0 || ( strncmp( result, "auto-", 5 ) == 0 && strcmp( result, monStatus ) != 0 ) ) {
                 rc4 = rsGeneralAdmin( rei->rsComm, &generalAdminInp2 );
             }
@@ -132,8 +136,8 @@ int rodsMonPerfLog( char *serverName, char *resc, char *output, ruleExecInfo_t *
         pthread_mutex_unlock( &my_mutex );
 #endif
         if ( foutput != NULL && rc1 != 0 ) {
-            fprintf( foutput, "time=%i : unable to insert the entries for server %s into the iCAT\n",
-                     timestamp, serverName );
+            fprintf( foutput, "time=%ji : unable to insert the entries for server %s into the iCAT\n",
+                     (intmax_t)timestamp, serverName );
             fclose( foutput );
         }
         if ( rc2 != 0 ) {
@@ -639,8 +643,7 @@ int msiServerMonPerf( msParam_t *verb, msParam_t *ptime, ruleExecInfo_t *rei ) {
     /* read the config file or the iCAT to know the servers list to monitor */
     nresc = 0;
 
-    nservers = -1;  /* nservers = -1, no config file available, consider all ressources for the monitoring */
-    /* nservers >= 0, config file available, consider all resources hosted on the list of servers */
+    nservers = -1;  /* nservers = -1, no config file available, consider all resources for the monitoring */
     if ( ( filein = fopen( MON_CFG_FILE, "r" ) ) != NULL ) {
         i = 0;
         while ( fgets( line, sizeof line, filein ) != NULL ) { /* for each line of the file */

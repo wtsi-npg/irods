@@ -7,6 +7,7 @@
 #include "irodsXmsgServer.hpp"
 #include "xmsgLib.hpp"
 #include "rsGlobal.hpp"
+#include "initServer.hpp"
 #include "miscServerFunct.hpp"
 #include "irods_server_properties.hpp"
 #include "readServerConfig.hpp"
@@ -19,6 +20,12 @@ int loopCnt = -1; /* make it -1 to run infinitely */
 
 
 int getAgentProcCnt() {
+    return 0;
+}
+
+int getAgentProcPIDs(
+    std::vector<int>& _pids ) {
+    _pids.clear();
     return 0;
 }
 
@@ -44,7 +51,7 @@ main( int argc, char **argv ) {
     signal( SIGHUP, signalExit );
     signal( SIGTERM, signalExit );
     signal( SIGUSR1, signalExit );
-    signal( SIGPIPE, rsPipSigalHandler );
+    signal( SIGPIPE, rsPipeSignalHandler );
 #endif
 
     /* Handle option to log sql commands */
