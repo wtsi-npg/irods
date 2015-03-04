@@ -5,6 +5,7 @@
 #include "sharedmemory.hpp"
 #include "cache.hpp"
 #include "resource.hpp"
+#include "initServer.hpp"
 #include "miscServerFunct.hpp"
 
 #include <syslog.h>
@@ -30,6 +31,10 @@
 #include "irods_server_properties.hpp"
 #include "irods_server_control_plane.hpp"
 #include "readServerConfig.hpp"
+#include "initServer.hpp"
+#include "procLog.h"
+#include "rsGlobalExtern.hpp"
+#include "rsGlobal.hpp"	/* server global */
 
 #include <boost/filesystem/operations.hpp>
 #include <boost/filesystem/convenience.hpp>
@@ -61,6 +66,8 @@ boost::mutex		  ReadReqCondMutex;
 boost::mutex		  SpawnReqCondMutex;
 boost::condition_variable ReadReqCond;
 boost::condition_variable SpawnReqCond;
+
+std::vector<std::string> setExecArg( const char *commandArgv );
 
 namespace {
 // We incorporate the cache salt into the rule engine's named_mutex and shared memory object.
@@ -338,11 +345,31 @@ serverMain( char *logDir ) {
         SvrSock = svrComm.sock;
 
         irods::server_state& state = irods::server_state::instance();
-        while ( irods::server_state::STOPPED != state() ) {
-            if ( irods::server_state::PAUSED == state() ) {
+        while ( true ) {
+            std::string the_server_state = state();
+            if( irods::server_state::STOPPED == the_server_state ) {
                 procChildren( &ConnectedAgentHead );
-                sleep( 0.125 );
+                rodsLog(
+                    LOG_NOTICE,
+                    "iRODS Server is exiting with state [%s].",
+                    the_server_state.c_str() );
+                break;
+
+            } else if ( irods::server_state::PAUSED == the_server_state ) {
+                procChildren( &ConnectedAgentHead );
+                rodsSleep(
+                    0,
+                    irods::SERVER_CONTROL_POLLING_TIME_MILLI_SEC * 1000 );
                 continue;
+
+            } else {
+                if( irods::server_state::RUNNING != the_server_state ) {
+                    rodsLog(
+                        LOG_NOTICE,
+                        "invalid iRODS server state [%s]",
+                        the_server_state.c_str() );
+                }
+
             }
 
             FD_SET( svrComm.sock, &sockMask );
@@ -350,7 +377,7 @@ serverMain( char *logDir ) {
             int numSock = 0;
             struct timeval time_out;
             time_out.tv_sec  = 0;
-            time_out.tv_usec = 100;
+            time_out.tv_usec = irods::SERVER_CONTROL_POLLING_TIME_MILLI_SEC * 1000;
             while ( ( numSock = select(
                                     svrComm.sock + 1,
                                     &sockMask,
@@ -439,8 +466,6 @@ serverMain( char *logDir ) {
         procChildren( &ConnectedAgentHead );
         stopProcConnReqThreads();
 
-        rodsLog( LOG_NOTICE, "irods server is exiting" );
-
     }
     catch ( const irods::exception& e_ ) {
         const char* what = e_.what();
@@ -448,6 +473,8 @@ serverMain( char *logDir ) {
         return e_.code();
 
     }
+
+    rodsLog( LOG_NOTICE, "iRODS Server is done." );
 
     return 0;
 
@@ -704,6 +731,25 @@ getAgentProcCnt() {
     return count;
 }
 
+int getAgentProcPIDs(
+    std::vector<int>& _pids ) {
+    agentProc_t *tmp_proc = 0;
+    int count = 0;
+
+    boost::unique_lock< boost::mutex > con_agent_lock( ConnectedAgentMutex );
+
+    tmp_proc = ConnectedAgentHead;
+    while ( tmp_proc != NULL ) {
+        count++;
+        _pids.push_back( tmp_proc->pid );
+        tmp_proc = tmp_proc->next;
+    }
+    con_agent_lock.unlock();
+
+    return count;
+
+} // getAgentProcPIDs
+
 int
 chkAgentProcCnt() {
     int count;
@@ -935,7 +981,8 @@ initServerMain( rsComm_t *svrComm ) {
     rodsServerHost_t *reServerHost = NULL;
     getReHost( &reServerHost );
     if ( reServerHost != NULL && reServerHost->localFlag == LOCAL_HOST ) {
-        if ( RODS_FORK() == 0 ) { /* child */
+        int re_pid = RODS_FORK();
+        if ( re_pid == 0 ) {//RODS_FORK() == 0 ) { /* child */
             char *reServerOption = NULL;
 
             close( svrComm->sock );
@@ -950,6 +997,10 @@ initServerMain( rsComm_t *svrComm ) {
             rodsLog( LOG_NOTICE, "Starting irodsReServer" );
             execv( av[0], &av[0] );
             exit( 1 );
+        } else {
+            irods::server_properties &props = 
+                irods::server_properties::getInstance();
+            props.set_property<int>( irods::RE_PID_KW, re_pid ); 
         }
     }
     else if ( unsigned char *shared = prepareServerSharedMemory() ) {
@@ -1303,7 +1354,7 @@ purgeLockFileWorkerTask() {
 
     irods::server_state& state = irods::server_state::instance();
     while ( irods::server_state::STOPPED != state() ) {
-        rodsSleep( 0, irods::SERVER_CONTROL_POLLING_TIME_MILLI_SEC );
+        rodsSleep( 0, irods::SERVER_CONTROL_POLLING_TIME_MILLI_SEC * 1000 ); // microseconds
         wait_time_ms += irods::SERVER_CONTROL_POLLING_TIME_MILLI_SEC;
 
         if ( wait_time_ms >= purge_time_ms ) {
@@ -1322,4 +1373,43 @@ purgeLockFileWorkerTask() {
 
 } // purgeLockFileWorkerTask
 
+std::vector<std::string>
+setExecArg( const char *commandArgv ) {
+
+    std::vector<std::string> arguments;
+    if ( commandArgv != NULL ) {
+        int len = 0;
+        bool openQuote = false;
+        const char* cur = commandArgv;
+        for ( int i = 0; commandArgv[i] != '\0'; i++ ) {
+            if ( commandArgv[i] == ' ' && !openQuote ) {
+                if ( len > 0 ) {    /* end of a argv */
+                    std::string( cur, len );
+                    arguments.push_back( std::string( cur, len ) );
+                    /* reset inx and pointer */
+                    cur = &commandArgv[i + 1];
+                    len = 0;
+                }
+                else {      /* skip over blanks */
+                    cur = &commandArgv[i + 1];
+                }
+            }
+            else if ( commandArgv[i] == '\'' || commandArgv[i] == '\"' ) {
+                openQuote ^= true;
+                if ( openQuote ) {
+                    /* skip the quote */
+                    cur = &commandArgv[i + 1];
+                }
+            }
+            else {
+                len ++;
+            }
+        }
+        if ( len > 0 ) {    /* handle the last argv */
+            arguments.push_back( std::string( cur, len ) );
+        }
+    }
+
+    return arguments;
+}
 // =-=-=-=-=-=-=-

@@ -468,19 +468,16 @@ msiDataObjLseek( msParam_t *inpParam1, msParam_t *inpParam2,
     }
 
     rei->status = rsDataObjLseek( rsComm, myDataObjLseekInp, &dataObjLseekOut );
-    if ( rei->status >= 0 ) {
-        if ( outParam != NULL ) {
-            fillMsParam( outParam, NULL, DataObjLseekOut_MS_T,
-                         dataObjLseekOut, NULL );
-        }
-        else {
-            free( dataObjLseekOut );
-        }
+    if ( rei->status >= 0 && outParam != NULL ) {
+        fillMsParam( outParam, NULL, DataObjLseekOut_MS_T, dataObjLseekOut, NULL );
     }
     else {
-        rodsLogAndErrorMsg( LOG_ERROR, &rsComm->rError, rei->status,
-                            "msiDataObjLseek: rsDataObjLseek failed, status = %d",
-                            rei->status );
+        free( dataObjLseekOut );
+        if ( rei->status >= 0 ) {
+            rodsLogAndErrorMsg( LOG_ERROR, &rsComm->rError, rei->status,
+                    "msiDataObjLseek: rsDataObjLseek failed, status = %d",
+                    rei->status );
+        }
     }
 
     return rei->status;
@@ -1389,6 +1386,11 @@ msiDataObjGet( msParam_t *inpParam1, msParam_t *msKeyValStr,
         rodsLogAndErrorMsg( LOG_ERROR, &rsComm->rError, rei->status,
                             "msiDataObjGet: input inpParam1 error. status = %d",
                             rei->status );
+        clearDataObjInp( dataObjInp );
+        free( dataObjInp );
+        if ( dataObjInp != myDataObjInp ) {
+            free( myDataObjInp );
+        }
         return rei->status;
     }
 
@@ -1409,6 +1411,11 @@ msiDataObjGet( msParam_t *inpParam1, msParam_t *msKeyValStr,
                                 "msiDataObjGet: input msKeyValStr error. status = %d",
                                 rei->status );
         }
+        clearDataObjInp( dataObjInp );
+        free( dataObjInp );
+        if ( dataObjInp != myDataObjInp ) {
+            free( myDataObjInp );
+        }
         return rei->status;
     }
 
@@ -1422,6 +1429,11 @@ msiDataObjGet( msParam_t *inpParam1, msParam_t *msKeyValStr,
         rodsLogAndErrorMsg( LOG_ERROR, &rsComm->rError, rei->status,
                             "msiDataObjGet: addMsParam error. status = %d",
                             rei->status );
+        clearMsParamArray( myMsParamArray, 1 );
+        free( myMsParamArray );
+        if ( dataObjInp != myDataObjInp ) {
+            free( myDataObjInp );
+        }
         return rei->status;
     }
 
