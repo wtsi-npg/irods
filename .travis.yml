@@ -1,7 +1,7 @@
 
 before_install:
   - sudo apt-get update -qq
-  - sudo apt-get install help2man unixodbc unixodbc-dev libfuse-dev libpam0g-dev libjson-perl libproc-dev rst2pdf
+  - sudo apt-get install help2man unixodbc unixodbc-dev libfuse-dev libpam0g-dev libjson-perl rst2pdf
 
 language: cpp
 
