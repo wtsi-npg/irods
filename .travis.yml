@@ -1,5 +1,32 @@
-before_install:
- - sudo apt-get update -qq
- - sudo apt-get install -qq wget curl libfuse-dev libcurl4-gnutls-dev libpam0g-dev libxml2-dev libbz2-dev libssl-dev libkrb5-dev libjson-perl zlib1g-dev python-dev help2man unixodbc unixodbc-dev
 
-script: hostname; cat /etc/hosts; ifconfig; sudo ./packaging/build.sh -r -j6 icat postgres
+before_install:
+  - sudo apt-get update -qq
+  - sudo apt-get install help2man unixodbc unixodbc-dev libfuse-dev libpam0g-dev libjson-perl rst2pdf
+
+language: cpp
+
+compiler:
+  - gcc
+
+env:
+  global:
+    - secure: wT+mlz6KKv6R34shGN6pmiKuQFKKZ8xqHOWTiK4Yob3OcIgZXQT6sXm7Q7dDwMikx3YgipiSkCwksHVgem0bT3Z7YTja8RdIlVHCtY6khAXFd7fLNEwQR35j4HI+WEXr2VrhOFPDsOZdL70TDdeze80csAy3u2bMEXqg7xG0lVg=
+
+script:
+  - ./packaging/build.sh -j 4 icat postgres
+
+after_success:
+  - ls ./build
+
+deploy:
+  provider: releases
+  api-key: $GH_OAUTH
+  file:
+    - ./build/irods-database-plugin-postgres-1.5.deb
+    - ./build/irods-dev-4.1.0-64bit.deb
+    - ./build/irods-icat-4.1.0-64bit.deb
+    - ./build/irods-runtime-4.1.0-64bit.deb
+  skip_cleanup: true
+  on:
+    tags: true
+    all_branches: true
