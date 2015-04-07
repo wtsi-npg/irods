@@ -143,7 +143,7 @@ irods::error make_federation_set(
 
         json_t* fed_obj = json_object();
         json_object_set( fed_obj, "zone_name",       json_string( zone_sid_vals[ 0 ].c_str() ) );
-        json_object_set( fed_obj, "zone_id",         json_string( zone_sid_vals[ 1 ].c_str() ) );
+        json_object_set( fed_obj, "zone_id",         json_string( "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX" ) );
         json_object_set( fed_obj, "negotiation_key", json_string( "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX" ) );
 
         json_array_append( _object, fed_obj );
@@ -154,7 +154,7 @@ irods::error make_federation_set(
 
 } // make_federation_set
 
-irods::error sanitize_federation_keys(
+irods::error sanitize_server_config_keys(
     json_t* _svr_cfg ) {
     if ( !_svr_cfg ) {
         return ERROR(
@@ -163,10 +163,15 @@ irods::error sanitize_federation_keys(
 
     }
 
-    // sanitize the top level key
+    // sanitize the top level keys
     json_object_set(
         _svr_cfg,
         "negotiation_key",
+        json_string( "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX" ) );
+
+    json_object_set(
+        _svr_cfg,
+        "server_control_plane_key",
         json_string( "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX" ) );
 
     // get the federation object
@@ -177,6 +182,9 @@ irods::error sanitize_federation_keys(
         return SUCCESS();
 
     }
+
+
+
 
     // sanitize all federation keys
     size_t      idx = 0;
@@ -191,7 +199,7 @@ irods::error sanitize_federation_keys(
 
     return SUCCESS();
 
-} // sanitize_federation_keys
+} // sanitize_server_config_keys
 
 irods::error convert_server_config(
     json_t*& _svr_cfg ) {
@@ -220,7 +228,7 @@ irods::error convert_server_config(
 
         }
         else {
-            return sanitize_federation_keys( _svr_cfg );
+            return sanitize_server_config_keys( _svr_cfg );
 
         }
     }
@@ -298,12 +306,12 @@ irods::error convert_server_config(
 
     ret = props.get_property< std::string >( "LocalZoneSID", s_val );
     if ( ret.ok() ) {
-        json_object_set( _svr_cfg, "zone_id", json_string( s_val.c_str() ) );
+        json_object_set( _svr_cfg, "zone_id", json_string( "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX" ) );
     }
 
     ret = props.get_property< std::string >( "agent_key", s_val );
     if ( ret.ok() ) {
-        json_object_set( _svr_cfg, "negotiation_key", json_string( s_val.c_str() ) );
+        json_object_set( _svr_cfg, "negotiation_key", json_string( "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX") );
     }
 
     ret = props.get_property< std::string >( "match_hash_policy", s_val );
@@ -455,6 +463,12 @@ irods::error convert_service_account(
 
         }
         else {
+            // sanitize the keys
+            json_object_set(
+                _svc_acct,
+                "rods_server_control_plane_key",
+                json_string( "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX" ) );
+
             return SUCCESS();
 
         }
@@ -684,7 +698,8 @@ irods::error get_resource_array(
                    status,
                    "failed in getRodsEnv" );
     }
-    const std::string host_name = my_env.rodsHost;
+
+    const std::string local_host_name = my_env.rodsHost;
 
     for ( irods::resource_manager::iterator itr = resc_mgr.begin();
             itr != resc_mgr.end();
@@ -705,11 +720,30 @@ irods::error get_resource_array(
             continue;
         }
 
+        std::string host_name;
+        ret = resc->get_property< std::string >( irods::RESOURCE_LOCATION, host_name );
+        if( !ret.ok() ) {
+            irods::log( PASS( ret ) );
+            continue;
+        }
+
         std::string name;
         ret = resc->get_property< std::string >( irods::RESOURCE_NAME, name );
         if ( !ret.ok() ) {
             irods::log( PASS( ret ) );
             continue;
+        }
+
+        if( host_name != irods::EMPTY_RESC_HOST &&
+            std::string::npos == host_name.find( local_host_name ) &&
+            std::string::npos == local_host_name.find( host_name ) ) {
+            rodsLog( 
+                LOG_DEBUG, 
+                "get_resource_array - skipping non-local resource [%s] on [%s]", 
+                name.c_str(), 
+                host_name.c_str() );
+            continue;
+
         }
 
         std::string type;
@@ -886,7 +920,8 @@ irods::error get_config_dir(
 
             if ( std::string::npos != name.find( SERVER_CONFIG_FILE ) ||
                     std::string::npos != name.find( LEGACY_SERVER_CONFIG_FILE ) ||
-                    std::string::npos != name.find( HOST_CONFIG_FILE )
+                    std::string::npos != name.find( HOST_CONFIG_FILE ||
+                    std::string::npos != name.find( "irods.config" ) )
                ) {
                 continue;
             }
