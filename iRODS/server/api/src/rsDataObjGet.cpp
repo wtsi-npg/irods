@@ -121,6 +121,9 @@ _rsDataObjGet( rsComm_t *rsComm, dataObjInp_t *dataObjInp,
     L1desc[l1descInx].oprType = GET_OPR;
 
     dataObjInfo = L1desc[l1descInx].dataObjInfo;
+    copyKeyVal(
+        &dataObjInp->condInput,
+        &dataObjInfo->condInput );
 
     if ( getStructFileType( dataObjInfo->specColl ) >= 0 && // JMC - backport 4682
             L1desc[l1descInx].l3descInx > 0 ) {
@@ -252,13 +255,8 @@ l3DataGetSingleBuf( rsComm_t *rsComm, int l1descInx,
 
     dataObjInfo = L1desc[l1descInx].dataObjInfo;
 
-    if ( dataObjInfo->dataSize > 0 ) {
-        dataObjOutBBuf->buf = malloc( dataObjInfo->dataSize );
-        bytesRead = l3FileGetSingleBuf( rsComm, l1descInx, dataObjOutBBuf );
-    }
-    else {
-        bytesRead = 0;
-    }
+    dataObjOutBBuf->buf = malloc( dataObjInfo->dataSize );
+    bytesRead = l3FileGetSingleBuf( rsComm, l1descInx, dataObjOutBBuf );
 
     memset( &dataObjCloseInp, 0, sizeof( dataObjCloseInp ) );
     dataObjCloseInp.l1descInx = l1descInx;
@@ -309,7 +307,6 @@ l3FileGetSingleBuf( rsComm_t *rsComm, int l1descInx,
         memset( &subFile, 0, sizeof( subFile ) );
         rstrcpy( subFile.subFilePath, dataObjInfo->subPath,
                  MAX_NAME_LEN );
-        //rstrcpy (subFile.addr.hostAddr, dataObjInfo->rescInfo->rescLoc,NAME_LEN);
         rstrcpy( subFile.addr.hostAddr, location.c_str(), NAME_LEN );
 
         subFile.specColl = dataObjInfo->specColl;
@@ -330,6 +327,11 @@ l3FileGetSingleBuf( rsComm_t *rsComm, int l1descInx,
     fileGetInp.mode = getFileMode( dataObjInp );
     fileGetInp.flags = O_RDONLY;
     fileGetInp.dataSize = dataObjInfo->dataSize;
+
+    copyKeyVal(
+        &dataObjInfo->condInput,
+        &fileGetInp.condInput );
+
     /* XXXXX need to be able to handle structured file */
     bytesRead = rsFileGet( rsComm, &fileGetInp, dataObjOutBBuf );
     return bytesRead;

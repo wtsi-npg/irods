@@ -73,6 +73,7 @@ LIB_CORE_OBJS =	\
 		$(libCoreObjDir)/fsckUtil.o \
 		$(libCoreObjDir)/osauth.o \
 		$(libCoreObjDir)/sslSockComm.o \
+		$(libCoreObjDir)/irods_serialization.o \
 		$(libCoreObjDir)/irods_auth_factory.o \
 		$(libCoreObjDir)/irods_operation_wrapper.o \
 		$(libCoreObjDir)/irods_string_tokenize.o \
@@ -110,6 +111,7 @@ LIB_CORE_OBJS =	\
 		$(libCoreObjDir)/irods_configuration_parser.o \
 		$(libCoreObjDir)/irods_server_properties.o \
 		$(libCoreObjDir)/irods_environment_properties.o \
+		$(libCoreObjDir)/irods_parse_command_line_options.o \
 		$(libCoreObjDir)/list.o \
 		$(libCoreObjDir)/hashtable.o \
 		$(libCoreObjDir)/region.o \

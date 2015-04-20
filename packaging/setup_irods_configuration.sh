@@ -69,9 +69,11 @@ fi
         MYPORT=`$PYTHON -c "import json; print json.load(open('$MYSERVERCONFIGJSON'))['zone_port']"`
         MYRANGESTART=`$PYTHON -c "import json; print json.load(open('$MYSERVERCONFIGJSON'))['server_port_range_start']"`
         MYRANGEEND=`$PYTHON -c "import json; print json.load(open('$MYSERVERCONFIGJSON'))['server_port_range_end']"`
-        MYLOCALZONEID=`$PYTHON -c "import json; print json.load(open('$MYSERVERCONFIGJSON'))['zone_id']"`
+        MYLOCALZONEKEY=`$PYTHON -c "import json; print json.load(open('$MYSERVERCONFIGJSON'))['zone_key']"`
         MYRESOURCEDIR=`$PYTHON -c "import json; print json.load(open('$MYSERVERCONFIGJSON'))['default_resource_directory']"`
         MYNEGOTIATIONKEY=`$PYTHON -c "import json; print json.load(open('$MYSERVERCONFIGJSON'))['negotiation_key']"`
+        MYCONTROLPLANEPORT=`$PYTHON -c "import json; print json.load(open('$MYSERVERCONFIGJSON'))['server_control_plane_port']"`
+        MYCONTROLPLANEKEY=`$PYTHON -c "import json; print json.load(open('$MYSERVERCONFIGJSON'))['server_control_plane_key']"`
         MYADMINNAME=`$PYTHON -c "import json; print json.load(open('$MYSERVERCONFIGJSON'))['zone_user']"`
         STATUS="loop"
     else
@@ -79,17 +81,17 @@ fi
         STATUS="firstpass"
     fi
 
-    # strip cruft from zone_id
-    tmp=${MYLOCALZONEID#\"}
+    # strip cruft from zone_key
+    tmp=${MYLOCALZONEKEY#\"}
     tmp=${tmp%\,}
-    MYLOCALZONEID=${tmp%\"}
+    MYLOCALZONEKEY=${tmp%\"}
 
     # strip cruft from negotiation_key
     tmp=${MYNEGOTIATIONKEY#\"}
     tmp=${tmp%\,}
     MYNEGOTIATIONKEY=${tmp%\"}
 
-    PREVIOUSID=$MYLOCALZONEID
+    PREVIOUSID=$MYLOCALZONEKEY
     PREVIOUSKEY=$MYNEGOTIATIONKEY
 
     # ask human for irods environment
@@ -113,7 +115,7 @@ fi
         LASTMYRANGEEND=$MYRANGEEND
         LASTMYRESOURCEDIR=$MYRESOURCEDIR
         LASTMYADMINNAME=$MYADMINNAME
-        LASTMYLOCALZONEID=$MYLOCALZONEID
+        LASTMYLOCALZONEKEY=$MYLOCALZONEKEY
         LASTMYNEGOTIATIONKEY=$MYNEGOTIATIONKEY
       fi
 
@@ -217,24 +219,24 @@ fi
       fi
       echo ""
 
-      # get zone_id
-      echo -n "iRODS server's zone_id"
-      if [ "$LASTMYLOCALZONEID" ] ; then
-        echo -n " [$LASTMYLOCALZONEID]"
+      # get zone_key
+      echo -n "iRODS server's zone_key"
+      if [ "$LASTMYLOCALZONEKEY" ] ; then
+        echo -n " [$LASTMYLOCALZONEKEY]"
       else
-        echo -n " [TEMPORARY_zone_id]"
+        echo -n " [TEMPORARY_zone_key]"
       fi
       echo -n ": "
-      read MYLOCALZONEID
-      if [ "$MYLOCALZONEID" == "" ] ; then
-        if [ "$LASTMYLOCALZONEID" ] ; then
-          MYLOCALZONEID=$LASTMYLOCALZONEID
+      read MYLOCALZONEKEY
+      if [ "$MYLOCALZONEKEY" == "" ] ; then
+        if [ "$LASTMYLOCALZONEKEY" ] ; then
+          MYLOCALZONEKEY=$LASTMYLOCALZONEKEY
         else
-          MYLOCALZONEID="TEMPORARY_zone_id"
+          MYLOCALZONEKEY="TEMPORARY_zone_key"
         fi
       fi
       # strip all forward slashes
-      MYLOCALZONEID=`echo "${MYLOCALZONEID}" | sed -e "s/\///g"`
+      MYLOCALZONEKEY=`echo "${MYLOCALZONEKEY}" | sed -e "s/\///g"`
       echo ""
 
       # get negotiation_key
@@ -269,6 +271,58 @@ fi
           fi
       done
 
+      # get control plane port
+      echo -n "Control Plane port"
+      if [ "$LASTMYCONTROLPLANEPORT" ] ; then
+        echo -n " [$LASTMYCONTROLPLANEPORT]"
+      else
+        echo -n " [1248]"
+      fi
+      echo -n ": "
+      read MYCONTROLPLANEPORT
+      if [ "$MYCONTROLPLANEPORT" == "" ] ; then
+        if [ "$LASTMYCONTROLPLANEPORT" ] ; then
+          MYCONTROLPLANEPORT=$LASTMYCONTROLPLANEPORT
+        else
+          MYCONTROLPLANEPORT="1248"
+        fi
+      fi
+      # strip all forward slashes
+      MYCONTROLPLANEPORT=`echo "${MYCONTROLPLANEPORT}" | sed -e "s/\///g"`
+      echo ""
+
+      # get control plane key
+      CONTROLPLANEKEYLENGTH=0
+      while [ $CONTROLPLANEKEYLENGTH -ne 32 ] ; do
+          echo -n "Control Plane key"
+          if [ "$LASTMYCONTROLPLANEKEY" ] ; then
+            echo -n " [$LASTMYCONTROLPLANEKEY]"
+          else
+            echo -n " [TEMPORARY__32byte_ctrl_plane_key]"
+          fi
+          echo -n ": "
+          read MYCONTROLPLANEKEY
+          if [ "$MYCONTROLPLANEKEY" == "" ] ; then
+            if [ "$LASTMYCONTROLPLANEKEY" ] ; then
+              MYCONTROLPLANEKEY=$LASTMYCONTROLPLANEKEY
+            else
+              MYCONTROLPLANEKEY="TEMPORARY__32byte_ctrl_plane_key"
+            fi
+          fi
+          # strip all forward slashes
+          MYCONTROLPLANEKEY=`echo "${MYCONTROLPLANEKEY}" | sed -e "s/\///g"`
+          echo ""
+          # check length (must equal 32)
+          CONTROLPLANEKEYLENGTH=${#MYCONTROLPLANEKEY}
+          if [ $CONTROLPLANEKEYLENGTH -ne 32 ] ; then
+              echo "   *** control plane key must be exactly 32 bytes ***"
+              echo ""
+              echo "   $MYCONTROLPLANEKEY <- $CONTROLPLANEKEYLENGTH bytes"
+              echo "   ________________________________ <- 32 bytes"
+              echo ""
+          fi
+      done
+
       # get admin name
       echo -n "iRODS server's administrator username"
       if [ "$LASTMYADMINNAME" ] ; then
@@ -290,9 +344,20 @@ fi
       echo ""
 
       if [ $ICAT_SERVER -eq 1 ] ; then
-        echo -n "iRODS server's administrator password: "
-        # get db password, without showing on screen
-        read -s MYADMINPASSWORD
+        ADMINPASSWORDLENGTH=0
+        while [ $ADMINPASSWORDLENGTH -eq 0 ] ; do
+          echo -n "iRODS server's administrator password: "
+          # get admin password, without showing on screen
+          read -s MYADMINPASSWORD
+          echo ""
+          # check length (must be greater than zero)
+          ADMINPASSWORDLENGTH=${#MYADMINPASSWORD}
+          if [ $ADMINPASSWORDLENGTH -eq 0 ] ; then
+              echo ""
+              echo "   *** administrator password cannot be empty ***"
+              echo ""
+          fi
+        done
         echo ""
         echo ""
       fi
@@ -306,8 +371,10 @@ fi
       echo "Range (Begin):          $MYRANGESTART"
       echo "Range (End):            $MYRANGEEND"
       echo "Vault Directory:        $MYRESOURCEDIR"
-      echo "zone_id:                $MYLOCALZONEID"
+      echo "zone_key:               $MYLOCALZONEKEY"
       echo "negotiation_key:        $MYNEGOTIATIONKEY"
+      echo "Control Plane Port:     $MYCONTROLPLANEPORT"
+      echo "Control Plane Key:      $MYCONTROLPLANEKEY"
       echo "Administrator Username: $MYADMINNAME"
       if [ $ICAT_SERVER -eq 1 ] ; then
         echo "Administrator Password: Not Shown"
@@ -338,8 +405,10 @@ fi
     $PYTHON $DETECTEDDIR/update_json.py $MYSERVERCONFIGJSON integer server_port_range_start $MYRANGESTART
     $PYTHON $DETECTEDDIR/update_json.py $MYSERVERCONFIGJSON integer server_port_range_end $MYRANGEEND
     $PYTHON $DETECTEDDIR/update_json.py $MYSERVERCONFIGJSON string zone_user $MYADMINNAME
-    $PYTHON $DETECTEDDIR/update_json.py $MYSERVERCONFIGJSON string zone_id $MYLOCALZONEID
+    $PYTHON $DETECTEDDIR/update_json.py $MYSERVERCONFIGJSON string zone_key $MYLOCALZONEKEY
     $PYTHON $DETECTEDDIR/update_json.py $MYSERVERCONFIGJSON string negotiation_key $MYNEGOTIATIONKEY
+    $PYTHON $DETECTEDDIR/update_json.py $MYSERVERCONFIGJSON integer server_control_plane_port $MYCONTROLPLANEPORT
+    $PYTHON $DETECTEDDIR/update_json.py $MYSERVERCONFIGJSON string server_control_plane_key $MYCONTROLPLANEKEY
     $PYTHON $DETECTEDDIR/update_json.py $MYSERVERCONFIGJSON string icat_host `hostname`
     if [ $ICAT_SERVER -eq 1 ] ; then
         $PYTHON $DETECTEDDIR/update_json.py $MYSERVERCONFIGJSON string admin_password $MYADMINPASSWORD

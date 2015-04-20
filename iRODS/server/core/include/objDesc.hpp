@@ -48,9 +48,6 @@ typedef struct l1desc {
     int chksumFlag;     /* parsed from condition */
     int srcL1descInx;
     char chksum[NAME_LEN]; /* the input chksum */
-#ifdef LOG_TRANSFERS
-    struct timeval openStartTime;
-#endif
     int remoteL1descInx;
     int stageFlag;
     int purgeCacheFlag; // JMC - backport 4537
@@ -80,7 +77,7 @@ extern "C" {
     getL1descIndexByDataObjInfo( const dataObjInfo_t * dataObjInfo );
     int
     getNumThreads( rsComm_t *rsComm, rodsLong_t dataSize, int inpNumThr,
-                   keyValPair_t *condInput, char *destRescName, char *srcRescName );
+                   keyValPair_t *condInput, char *destRescName, char *srcRescName, int oprType );
     int
     initDataOprInp( dataOprInp_t *dataOprInp, int l1descInx, int oprType );
     int
@@ -121,4 +118,3 @@ extern "C" {
 }
 
 #endif  /* OBJ_DESC_H */
-

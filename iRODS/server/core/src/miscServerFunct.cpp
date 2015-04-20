@@ -140,7 +140,7 @@ setupSrvPortalForParaOpr( rsComm_t *rsComm, dataOprInp_t *dataOprInp,
                                       dataOprInp->dataSize, dataOprInp->numThreads,
                                       &dataOprInp->condInput,
                                       //getValByKey (&dataOprInp->condInput, RESC_NAME_KW), NULL);
-                                      getValByKey( &dataOprInp->condInput,  RESC_HIER_STR_KW ), NULL );
+                                      getValByKey( &dataOprInp->condInput,  RESC_HIER_STR_KW ), NULL, oprType );
     }
 
     if ( myDataObjPutOut->numThreads == 0 ) {
@@ -576,12 +576,6 @@ partialDataPut( portalTransferInp_t *myInput ) {
         ( myInput->rsComm->negotiation_results ==
           irods::CS_NEG_USE_SSL );
 
-#ifdef PARA_TIMING
-    time_t startTime, afterSeek, afterTransfer,
-           endTime;
-    startTime = time( 0 );
-#endif
-
     myInput->status = 0;
     destL3descInx = myInput->destFd;
     srcFd = myInput->srcFd;
@@ -601,10 +595,6 @@ partialDataPut( portalTransferInp_t *myInput ) {
             return;
         }
     }
-
-#ifdef PARA_TIMING
-    afterSeek = time( 0 );
-#endif
 
     bytesToGet = myInput->size;
 
@@ -632,21 +622,37 @@ partialDataPut( portalTransferInp_t *myInput ) {
             &myInput->shared_secret[iv_size] );
     }
 
-    buf = ( unsigned char* )malloc( ( 2 * TRANS_BUF_SZ ) + sizeof( unsigned char ) );
+    int chunk_size = 0;
+    irods::error ret = irods::get_advanced_setting<int>(
+                           irods::CFG_TRANS_CHUNK_SIZE_PARA_TRANS,
+                           chunk_size );
+    if( !ret.ok() ) {
+        irods::log( PASS( ret ) );
+        return; 
+    }
+    chunk_size *= 1024 * 1024;
+
+    int trans_buff_size = 0;
+    ret = irods::get_advanced_setting<int>(
+              irods::CFG_TRANS_BUFFER_SIZE_FOR_PARA_TRANS,
+              trans_buff_size );
+    if( !ret.ok() ) {
+        irods::log( PASS( ret ) );
+        return; 
+    }
+    trans_buff_size *= 1024 * 1024;
+
+    buf = ( unsigned char* )malloc( ( 2 * trans_buff_size ) + sizeof( unsigned char ) );
 
     while ( bytesToGet > 0 ) {
         int toread0;
         int bytesRead;
 
-#ifdef PARA_TIMING
-        time_t tstart, tafterRead, tafterWrite;
-        tstart = time( 0 );
-#endif
         if ( myInput->flags & STREAMING_FLAG ) {
             toread0 = bytesToGet;
         }
-        else if ( bytesToGet > TRANS_SZ ) {
-            toread0 = TRANS_SZ;
+        else if ( bytesToGet > chunk_size ) {
+            toread0 = chunk_size;
         }
         else {
             toread0 = bytesToGet;
@@ -670,8 +676,8 @@ partialDataPut( portalTransferInp_t *myInput ) {
         while ( toread0 > 0 ) {
             int toread1 = 0;
 
-            if ( toread0 > TRANS_BUF_SZ ) {
-                toread1 = TRANS_BUF_SZ;
+            if ( toread0 > trans_buff_size ) {
+                toread1 = trans_buff_size;
             }
             else {
                 toread1 = toread0;
@@ -699,10 +705,6 @@ partialDataPut( portalTransferInp_t *myInput ) {
                             buf,
                             new_size,
                             NULL, NULL );
-
-#ifdef PARA_TIMING
-            tafterRead = time( 0 );
-#endif
 
             if ( bytesRead == new_size ) {
                 // =-=-=-=-=-=-=-
@@ -768,21 +770,12 @@ partialDataPut( portalTransferInp_t *myInput ) {
                 myInput->status = SYS_COPY_LEN_ERR;
                 break;
             }
-#ifdef PARA_TIMING
-            tafterWrite = time( 0 );
-            rodsLog( LOG_NOTICE,
-                     "Thr %d: sz=%d netReadTm=%d diskWriteTm=%d",
-                     myInput->threadNum, bytesWritten, tafterRead - tstart,
-                     tafterWrite - tafterRead );
-#endif
+
         }	/* while loop toread0 */
         if ( myInput->status < 0 ) {
             break;
         }
     }           /* while loop bytesToGet */
-#ifdef PARA_TIMING
-    afterTransfer = time( 0 );
-#endif
 
     free( buf );
 
@@ -793,13 +786,7 @@ partialDataPut( portalTransferInp_t *myInput ) {
         _l3Close( myInput->rsComm, destL3descInx );
     }
     mySockClose( srcFd );
-#ifdef PARA_TIMING
-    endTime = time( 0 );
-    rodsLog( LOG_NOTICE,
-             "Thr %d: seekTm=%d transTm=%d endTm=%d",
-             myInput->threadInx,
-             afterSeek - afterConn, afterTransfer - afterSeek, endTime - afterTransfer );
-#endif
+
     return;
 }
 
@@ -808,16 +795,9 @@ void partialDataGet(
     // =-=-=-=-=-=-=-
     //
     int srcL3descInx = 0, destFd = 0;
-    unsigned char *buf = 0;
     int bytesWritten = 0;
     rodsLong_t bytesToGet = 0;
     rodsLong_t myOffset = 0;
-
-#ifdef PARA_TIMING
-    time_t startTime, afterSeek, afterTransfer,
-           endTime;
-    startTime = time( 0 );
-#endif
 
     if ( myInput == NULL ) {
         rodsLog( LOG_SYS_FATAL, "partialDataGet: NULL myInput" );
@@ -872,28 +852,41 @@ void partialDataGet(
             &myInput->shared_secret[iv_size] );
     }
 
-    size_t buf_size = ( 2 * TRANS_BUF_SZ ) * sizeof( unsigned char ) ;
-    buf = ( unsigned char* )malloc( buf_size );
+    int trans_buff_size = 0;
+    irods::error ret = irods::get_advanced_setting<int>(
+                           irods::CFG_TRANS_BUFFER_SIZE_FOR_PARA_TRANS,
+                           trans_buff_size );
+    if( !ret.ok() ) {
+        irods::log( PASS( ret ) );
+        return;
+    }
+    trans_buff_size *= 1024 * 1024;
 
-#ifdef PARA_TIMING
-    afterSeek = time( 0 );
-#endif
+    size_t buf_size = ( 2 * trans_buff_size ) * sizeof( unsigned char ) ;
+    unsigned char * buf = ( unsigned char* )malloc( buf_size );
 
     bytesToGet = myInput->size;
+
+    int chunk_size = 0;
+    ret = irods::get_advanced_setting<int>(
+              irods::CFG_TRANS_CHUNK_SIZE_PARA_TRANS,
+              chunk_size );
+    if( !ret.ok() ) {
+        irods::log( PASS( ret ) );
+        free( buf );
+        return;
+    }
+    chunk_size *= 1024 * 1024;
 
     while ( bytesToGet > 0 ) {
         int toread0;
         int bytesRead;
 
-#ifdef PARA_TIMING
-        time_t tstart, tafterRead, tafterWrite;
-        tstart = time( 0 );
-#endif
         if ( myInput->flags & STREAMING_FLAG ) {
             toread0 = bytesToGet;
         }
-        else if ( bytesToGet > TRANS_SZ ) {
-            toread0 = TRANS_SZ;
+        else if ( bytesToGet > chunk_size ) {
+            toread0 = chunk_size;
         }
         else {
             toread0 = bytesToGet;
@@ -917,8 +910,8 @@ void partialDataGet(
         while ( toread0 > 0 ) {
             int toread1;
 
-            if ( toread0 > TRANS_BUF_SZ ) {
-                toread1 = TRANS_BUF_SZ;
+            if ( toread0 > trans_buff_size ) {
+                toread1 = trans_buff_size;
             }
             else {
                 toread1 = toread0;
@@ -926,9 +919,7 @@ void partialDataGet(
 
             bytesRead = _l3Read( myInput->rsComm, srcL3descInx, buf, toread1 );
 
-#ifdef PARA_TIMING
-            tafterRead = time( 0 );
-#endif
+
             if ( bytesRead == toread1 ) {
                 // =-=-=-=-=-=-=-
                 // compute an iv for this particular transmission and use
@@ -1025,21 +1016,12 @@ void partialDataGet(
                 myInput->status = SYS_COPY_LEN_ERR;
                 break;
             }
-#ifdef PARA_TIMING
-            tafterWrite = time( 0 );
-            rodsLog( LOG_NOTICE,
-                     "Thr %d: sz=%d netReadTm=%d diskWriteTm=%d",
-                     myInput->threadNum, bytesWritten, tafterRead - tstart,
-                     tafterWrite - tafterRead );
-#endif
         }       /* while loop toread0 */
         if ( myInput->status < 0 ) {
             break;
         }
     }           /* while loop bytesToGet */
-#ifdef PARA_TIMING
-    afterTransfer = time( 0 );
-#endif
+
     free( buf );
 
     applyRuleForSvrPortal( destFd, GET_OPR, 1, myOffset - myInput->offset, myInput->rsComm );
@@ -1049,13 +1031,7 @@ void partialDataGet(
         _l3Close( myInput->rsComm, srcL3descInx );
     }
     CLOSE_SOCK( destFd );
-#ifdef PARA_TIMING
-    endTime = time( 0 );
-    rodsLog( LOG_NOTICE,
-             "Thr %d: seekTm=%d transTm=%d endTm=%d",
-             myInput->threadInx,
-             afterSeek - afterConn, afterTransfer - afterSeek, endTime - afterTransfer );
-#endif
+
     return;
 }
 
@@ -1073,9 +1049,6 @@ remToLocPartialCopy( portalTransferInp_t *myInput ) {
                  "remToLocPartialCopy: NULL input" );
         return;
     }
-#ifdef PARA_DEBUG
-    printf( "remToLocPartialCopy: thread %d at start\n", myInput->threadNum );
-#endif
 
     myInput->status = 0;
     destL3descInx = myInput->destFd;
@@ -1112,20 +1085,22 @@ remToLocPartialCopy( portalTransferInp_t *myInput ) {
             &myInput->shared_secret[iv_size] );
     }
 
-    buf = ( unsigned char* )malloc( ( 2 * TRANS_BUF_SZ ) * sizeof( unsigned char ) );
+    int trans_buff_size = 0;
+    irods::error ret = irods::get_advanced_setting<int>(
+                           irods::CFG_TRANS_BUFFER_SIZE_FOR_PARA_TRANS,
+                           trans_buff_size );
+    if( !ret.ok() ) {
+        irods::log( PASS( ret ) );
+        return; 
+    }
+    trans_buff_size *= 1024 * 1024;
+
+    buf = ( unsigned char* )malloc( ( 2 * trans_buff_size ) * sizeof( unsigned char ) );
 
     while ( myInput->status >= 0 ) {
         rodsLong_t toGet;
 
         myInput->status = rcvTranHeader( srcFd, &myHeader );
-
-#ifdef PARA_DEBUG
-        printf( "remToLocPartialCopy: thread %d after rcvTranHeader\n",
-                myInput->threadNum );
-        printf( "remToLocPartialCopy: thread %d header offset %lld, len %lld\n",
-                myInput->threadNum, myHeader.offset, myHeader.length );
-
-#endif
 
         if ( myInput->status < 0 ) {
             break;
@@ -1150,8 +1125,8 @@ remToLocPartialCopy( portalTransferInp_t *myInput ) {
         toGet = myHeader.length;
         while ( toGet > 0 ) {
 
-            if ( toGet > TRANS_BUF_SZ ) {
-                toRead = TRANS_BUF_SZ;
+            if ( toGet > trans_buff_size ) {
+                toRead = trans_buff_size;
             }
             else {
                 toRead = toGet;
@@ -1639,9 +1614,6 @@ sameHostPartialCopy( portalTransferInp_t *myInput ) {
                  "onsameHostPartialCopy: NULL input" );
         return;
     }
-#ifdef PARA_DEBUG
-    printf( "onsameHostPartialCopy: thread %d at start\n", myInput->threadNum );
-#endif
 
     myInput->status = 0;
     destL3descInx = myInput->destFd;
@@ -1677,15 +1649,25 @@ sameHostPartialCopy( portalTransferInp_t *myInput ) {
         }
     }
 
-    buf = malloc( TRANS_BUF_SZ );
+    int trans_buff_size = 0;
+    irods::error ret = irods::get_advanced_setting<int>(
+                           irods::CFG_TRANS_BUFFER_SIZE_FOR_PARA_TRANS,
+                           trans_buff_size );
+    if( !ret.ok() ) {
+        irods::log( PASS( ret ) );
+        return; 
+    }
+    trans_buff_size *= 1024 * 1024;
+    
+    buf = malloc( trans_buff_size );
 
     toCopy = myInput->size;
 
     while ( toCopy > 0 ) {
         int toRead;
 
-        if ( toCopy > TRANS_BUF_SZ ) {
-            toRead = TRANS_BUF_SZ;
+        if ( toCopy > trans_buff_size ) {
+            toRead = trans_buff_size;
         }
         else {
             toRead = toCopy;
@@ -1750,9 +1732,6 @@ locToRemPartialCopy( portalTransferInp_t *myInput ) {
                  "locToRemPartialCopy: NULL input" );
         return;
     }
-#ifdef PARA_DEBUG
-    printf( "locToRemPartialCopy: thread %d at start\n", myInput->threadNum );
-#endif
 
     myInput->status = 0;
     srcL3descInx = myInput->srcFd;
@@ -1788,17 +1767,22 @@ locToRemPartialCopy( portalTransferInp_t *myInput ) {
 
     }
 
-    buf = ( unsigned char* )malloc( 2 * TRANS_BUF_SZ * sizeof( unsigned char ) );
+    int trans_buff_size = 0;
+    irods::error ret = irods::get_advanced_setting<int>(
+                           irods::CFG_TRANS_BUFFER_SIZE_FOR_PARA_TRANS,
+                           trans_buff_size );
+    if( !ret.ok() ) {
+        irods::log( PASS( ret ) );
+        return; 
+    }
+    trans_buff_size *= 1024 * 1024;
+    
+    buf = ( unsigned char* )malloc( 2 * trans_buff_size * sizeof( unsigned char ) );
 
     while ( myInput->status >= 0 ) {
         rodsLong_t toGet;
 
         myInput->status = rcvTranHeader( destFd, &myHeader );
-
-#ifdef PARA_DEBUG
-        printf( "locToRemPartialCopy: thread %d after rcvTranHeader\n",
-                myInput->threadNum );
-#endif
 
         if ( myInput->status < 0 ) {
             break;
@@ -1807,10 +1791,6 @@ locToRemPartialCopy( portalTransferInp_t *myInput ) {
         if ( myHeader.oprType == DONE_OPR ) {
             break;
         }
-#ifdef PARA_DEBUG
-        printf( "locToRemPartialCopy:thread %d header offset %lld, len %lld",
-                myInput->threadNum, myHeader.offset, myHeader.length ); // JMC cppcheck - missing first parameter
-#endif
 
         if ( myHeader.offset != curOffset ) {
             curOffset = myHeader.offset;
@@ -1828,8 +1808,8 @@ locToRemPartialCopy( portalTransferInp_t *myInput ) {
         toGet = myHeader.length;
         while ( toGet > 0 ) {
 
-            if ( toGet > TRANS_BUF_SZ ) {
-                toRead = TRANS_BUF_SZ;
+            if ( toGet > trans_buff_size ) {
+                toRead = trans_buff_size;
             }
             else {
                 toRead = toGet;
@@ -2536,14 +2516,25 @@ singleRemToLocCopy( rsComm_t *rsComm, dataCopyInp_t *dataCopyInp ) {
                  "singleRemToLocCopy: NULL dataCopyInp input" );
         return SYS_INTERNAL_NULL_INPUT_ERR;
     }
+    
+    int trans_buff_size = 0;
+    irods::error ret = irods::get_advanced_setting<int>(
+                           irods::CFG_TRANS_BUFFER_SIZE_FOR_PARA_TRANS,
+                           trans_buff_size );
+    if( !ret.ok() ) {
+        irods::log( PASS( ret ) );
+        return ret.code(); 
+    }
+    trans_buff_size *= 1024 * 1024;
+
     dataOprInp = &dataCopyInp->dataOprInp;
     l1descInx = dataCopyInp->portalOprOut.l1descInx;
     destL3descInx = dataOprInp->destL3descInx;
     dataSize = dataOprInp->dataSize;
 
     bzero( &dataObjReadInp, sizeof( dataObjReadInp ) );
-    dataObjReadInpBBuf.buf = malloc( TRANS_BUF_SZ );
-    dataObjReadInpBBuf.len = dataObjReadInp.len = TRANS_BUF_SZ;
+    dataObjReadInpBBuf.buf = malloc( trans_buff_size );
+    dataObjReadInpBBuf.len = dataObjReadInp.len = trans_buff_size;
     dataObjReadInp.l1descInx = l1descInx;
     while ( ( bytesRead = rsDataObjRead( rsComm, &dataObjReadInp,
                                          &dataObjReadInpBBuf ) ) > 0 ) {
@@ -2591,18 +2582,29 @@ singleLocToRemCopy( rsComm_t *rsComm, dataCopyInp_t *dataCopyInp ) {
                  "singleRemToLocCopy: NULL dataCopyInp input" );
         return SYS_INTERNAL_NULL_INPUT_ERR;
     }
+    
+    int trans_buff_size = 0;
+    irods::error ret = irods::get_advanced_setting<int>(
+                           irods::CFG_TRANS_BUFFER_SIZE_FOR_PARA_TRANS,
+                           trans_buff_size );
+    if( !ret.ok() ) {
+        irods::log( PASS( ret ) );
+        return ret.code(); 
+    }
+    trans_buff_size *= 1024 * 1024;
+   
     dataOprInp = &dataCopyInp->dataOprInp;
     l1descInx = dataCopyInp->portalOprOut.l1descInx;
     srcL3descInx = dataOprInp->srcL3descInx;
     dataSize = dataOprInp->dataSize;
 
     bzero( &dataObjWriteInp, sizeof( dataObjWriteInp ) );
-    dataObjWriteInpBBuf.buf = malloc( TRANS_BUF_SZ );
+    dataObjWriteInpBBuf.buf = malloc( trans_buff_size );
     dataObjWriteInpBBuf.len = 0;
     dataObjWriteInp.l1descInx = l1descInx;
 
     while ( ( bytesRead = _l3Read( rsComm, srcL3descInx,
-                                   dataObjWriteInpBBuf.buf, TRANS_BUF_SZ ) ) > 0 ) {
+                                   dataObjWriteInpBBuf.buf, trans_buff_size ) ) > 0 ) {
         dataObjWriteInp.len =  dataObjWriteInpBBuf.len = bytesRead;
         bytesWritten = rsDataObjWrite( rsComm, &dataObjWriteInp,
                                        &dataObjWriteInpBBuf );
@@ -2647,14 +2649,25 @@ singleL1Copy( rsComm_t *rsComm, dataCopyInp_t *dataCopyInp ) {
                  "singleL1Copy: NULL dataCopyInp input" );
         return SYS_INTERNAL_NULL_INPUT_ERR;
     }
+    
+    int trans_buff_size = 0;
+    irods::error ret = irods::get_advanced_setting<int>(
+                           irods::CFG_TRANS_BUFFER_SIZE_FOR_PARA_TRANS,
+                           trans_buff_size );
+    if( !ret.ok() ) {
+        irods::log( PASS( ret ) );
+        return ret.code(); 
+    }
+    trans_buff_size *= 1024 * 1024;
+
     dataOprInp = &dataCopyInp->dataOprInp;
     destL1descInx = dataCopyInp->portalOprOut.l1descInx;
     srcL1descInx = L1desc[destL1descInx].srcL1descInx;
 
     dataSize = dataOprInp->dataSize;
     bzero( &dataObjReadInp, sizeof( dataObjReadInp ) );
-    dataObjReadInpBBuf.buf = malloc( TRANS_BUF_SZ );
-    dataObjReadInpBBuf.len = dataObjReadInp.len = TRANS_BUF_SZ;
+    dataObjReadInpBBuf.buf = malloc( trans_buff_size );
+    dataObjReadInpBBuf.len = dataObjReadInp.len = trans_buff_size;
     dataObjReadInp.l1descInx = srcL1descInx;
 
     bzero( &dataObjWriteInp, sizeof( dataObjWriteInp ) );
@@ -3392,8 +3405,3 @@ irods::error add_global_re_params_to_kvp_for_dynpep(
     return ret;
 
 } // add_global_re_params_to_kvp
-
-
-
-
-

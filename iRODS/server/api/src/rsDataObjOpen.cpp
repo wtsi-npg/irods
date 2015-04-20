@@ -33,6 +33,7 @@
 #include "irods_resource_redirect.hpp"
 #include "irods_hierarchy_parser.hpp"
 #include "irods_stacktrace.hpp"
+#include "irods_server_properties.hpp"
 
 int
 rsDataObjOpen( rsComm_t *rsComm, dataObjInp_t *dataObjInp ) {
@@ -276,6 +277,11 @@ _rsDataObjOpenWithObjInfo( rsComm_t *rsComm, dataObjInp_t *dataObjInp,
     if ( l1descInx < 0 ) {
         return l1descInx;
     }
+    
+    // kv pasthru
+    copyKeyVal( 
+        &dataObjInp->condInput,
+        &dataObjInfo->condInput );
 
     replStatus = dataObjInfo->replStatus | OPEN_EXISTING_COPY;
 
@@ -292,13 +298,23 @@ _rsDataObjOpenWithObjInfo( rsComm_t *rsComm, dataObjInp_t *dataObjInp,
         status = 0;
     }
     else if ( phyOpenFlag == PHYOPEN_BY_SIZE ) {
+        int single_buff_sz = 0;
+        irods::error ret = irods::get_advanced_setting<int>(
+                               irods::CFG_MAX_SIZE_FOR_SINGLE_BUFFER,
+                               single_buff_sz );
+        if( !ret.ok() ) {
+            irods::log( PASS( ret ) );
+            return ret.code();
+        }
+        single_buff_sz *= 1024 * 1024;
+
         /* open for put or get. May do "dataInclude" */
         if ( getValByKey( &dataObjInp->condInput, DATA_INCLUDED_KW ) != NULL
-                && dataObjInfo->dataSize <= MAX_SZ_FOR_SINGLE_BUF ) {
+                && dataObjInfo->dataSize <= single_buff_sz ) {
             status = 0;
         }
         else if ( dataObjInfo->dataSize != UNKNOWN_FILE_SZ &&
-                  dataObjInfo->dataSize < MAX_SZ_FOR_SINGLE_BUF ) {
+                  dataObjInfo->dataSize < single_buff_sz ) {
             status = 0;
         }
         else {
@@ -394,6 +410,12 @@ _l3Open( rsComm_t *rsComm, dataObjInfo_t *dataObjInfo, int mode, int flags ) {
     fileOpenInp.mode = mode;
     fileOpenInp.flags = flags;
     rstrcpy( fileOpenInp.in_pdmo, dataObjInfo->in_pdmo, MAX_NAME_LEN );
+
+    // kv passthru
+    copyKeyVal(
+        &dataObjInfo->condInput,
+        &fileOpenInp.condInput );
+
     l3descInx = rsFileOpen( rsComm, &fileOpenInp );
 
     return l3descInx;
@@ -414,6 +436,12 @@ l3OpenByHost( rsComm_t *rsComm, int l3descInx, int flags ) {
     rstrcpy( fileOpenInp.objPath, FileDesc[l3descInx].objPath, MAX_NAME_LEN );
     fileOpenInp.mode = FileDesc[l3descInx].mode;
     fileOpenInp.flags = flags;
+
+    // kv passthru
+    //copyKeyVal(
+    //    &dataObjInfo->condInput,
+    //    &fileOpenInp.condInput );
+
     newL3descInx = rsFileOpenByHost( rsComm, &fileOpenInp,
                                      FileDesc[l3descInx].rodsServerHost );
 

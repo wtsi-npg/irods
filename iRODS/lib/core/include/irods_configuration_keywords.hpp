@@ -17,7 +17,7 @@ namespace irods {
     const std::string CFG_DB_USERNAME_KW( "db_username" );
     const std::string CFG_DB_PASSWORD_KW( "db_password" );
     const std::string CFG_ZONE_NAME_KW( "zone_name" );
-    const std::string CFG_ZONE_ID_KW( "zone_id" );
+    const std::string CFG_ZONE_KEY_KW( "zone_key" );
     const std::string CFG_NEGOTIATION_KEY_KW( "negotiation_key" );
     const std::string CFG_ICAT_HOST_KW( "icat_host" );
     const std::string CFG_RE_RULEBASE_SET_KW( "re_rulebase_set" );
@@ -31,8 +31,25 @@ namespace irods {
     const std::string CFG_MATCH_HASH_POLICY_KW( "match_hash_policy" );
     const std::string CFG_FEDERATION_KW( "federation" );
     const std::string CFG_ENVIRONMENT_VARIABLES_KW( "environment_variables" );
+    const std::string CFG_ADVANCED_SETTINGS_KW( "advanced_settings" );
 
-
+    // advanced settings
+    const std::string CFG_MAX_SIZE_FOR_SINGLE_BUFFER( 
+        "maximum_size_for_single_buffer_in_megabytes" );
+    const std::string CFG_DEF_NUMBER_TRANSFER_THREADS( 
+        "default_number_of_transfer_threads" );
+    const std::string CFG_MAX_NUMBER_TRANSFER_THREADS( 
+        "maximum_number_of_transfer_threads" );
+    const std::string CFG_TRANS_CHUNK_SIZE_PARA_TRANS( 
+        "transfer_chunk_size_for_parallel_transfer_in_megabytes" );
+    const std::string CFG_TRANS_BUFFER_SIZE_FOR_PARA_TRANS( 
+        "transfer_buffer_size_for_parallel_transfer_in_megabytes" ); 
+    const std::string CFG_DEF_TEMP_PASSWORD_LIFETIME( 
+        "default_temporary_password_lifetime_in_seconds" );
+    const std::string CFG_MAX_TEMP_PASSWORD_LIFETIME( 
+        "maximum_temporary_password_lifetime_in_seconds" );
+    const std::string CFG_MAX_NUMBER_OF_CONCURRENT_RE_PROCS( 
+        "maximum_number_of_concurrent_rule_engine_server_processes" );
 
     // service_account_environment.json keywords
     const std::string CFG_IRODS_USER_NAME_KW( "irods_user_name" );
@@ -84,6 +101,16 @@ namespace irods {
     const std::string CFG_IRODS_SERVER_CONTROL_PLANE_ENCRYPTION_ALGORITHM_KW(
         "irods_server_control_plane_encryption_algorithm" );
 
+    // irods environment advanced settings
+    const std::string CFG_IRODS_MAX_SIZE_FOR_SINGLE_BUFFER( 
+        "irods_maximum_size_for_single_buffer_in_megabytes" );
+    const std::string CFG_IRODS_DEF_NUMBER_TRANSFER_THREADS( 
+        "irods_default_number_of_transfer_threads" );
+    const std::string CFG_IRODS_MAX_NUMBER_TRANSFER_THREADS( 
+        "irods_maximum_number_of_transfer_threads" );
+    const std::string CFG_IRODS_TRANS_BUFFER_SIZE_FOR_PARA_TRANS( 
+        "irods_transfer_buffer_size_for_parallel_transfer_in_megabytes" ); 
+
     // legacy ssl environment variables
     const std::string CFG_IRODS_SSL_CA_CERTIFICATE_PATH(
         "irods_ssl_ca_certificate_path" );
@@ -103,7 +130,6 @@ namespace irods {
     const std::string CFG_ZONE_PORT( "zone_port" );
     const std::string CFG_ZONE_AUTH_SCHEME( "zone_auth_scheme" );
     const std::string CFG_XMSG_PORT( "xmsg_port" );
-
 
     // irods control plane values
     const std::string CFG_SERVER_CONTROL_PLANE_PORT(

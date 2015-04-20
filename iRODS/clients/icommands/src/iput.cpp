@@ -10,6 +10,7 @@
 #include "putUtil.hpp"
 #include "irods_client_api_table.hpp"
 #include "irods_pack_table.hpp"
+#include "irods_parse_command_line_options.hpp"
 
 void usage();
 
@@ -18,43 +19,30 @@ main( int argc, char **argv ) {
 
     signal( SIGPIPE, SIG_IGN );
 
-    int status;
-    rodsEnv myEnv;
     rErrMsg_t errMsg;
     rcComm_t *conn;
     rodsArguments_t myRodsArgs;
-    char *optStr;
     rodsPathInp_t rodsPathInp;
     int reconnFlag;
 
-
-    optStr = "abD:fhIkKn:N:p:Prt:R:QTvVX:Z";
-
-    status = parseCmdLineOpt( argc, argv, optStr, 1, &myRodsArgs );
-
+    rodsEnv myEnv;
+    int status = getRodsEnv( &myEnv );
     if ( status < 0 ) {
-        printf( "use -h for help.\n" );
-        exit( 1 );
+        return status;
     }
 
-    if ( myRodsArgs.help == True ) {
-        usage();
-        exit( 0 );
-    }
+    int p_err = parse_opts_and_paths(
+                    argc,
+                    argv,
+                    myRodsArgs,
+                    &myEnv,
+                    UNKNOWN_FILE_T,
+                    UNKNOWN_OBJ_T,
+                    0,
+                    &rodsPathInp );
+    if( p_err < 0 ) {
+        return p_err;
 
-    status = getRodsEnv( &myEnv );
-    if ( status < 0 ) {
-        rodsLogError( LOG_ERROR, status, "main: getRodsEnv error. " );
-        exit( 1 );
-    }
-
-    status = parseCmdLinePath( argc, argv, optind, &myEnv,
-                               UNKNOWN_FILE_T, UNKNOWN_OBJ_T, 0, &rodsPathInp );
-
-    if ( status < 0 ) {
-        rodsLogError( LOG_ERROR, status, "main: parseCmdLinePath error. " );
-        printf( "use -h for help.\n" );
-        exit( 1 );
     }
 
     if ( myRodsArgs.reconnect == True ) {
@@ -107,12 +95,12 @@ usage() {
         "Usage: iput [-abfIkKPQrtTUvV] [-D dataType] [-N numThreads] [-n replNum]",
         "             [-p physicalPath] [-R resource] [-X restartFile] [--link]",
         "             [--lfrestart lfRestartFile] [--retries count] [--wlock]",
-        "             [--purgec]",
+        "             [--purgec] [--kv_pass=key-value-string] [--metadata=avu-string]",
         "               localSrcFile|localSrcDir ...  destDataObj|destColl",
         "Usage: iput [-abfIkKPQtTUvV] [-D dataType] [-N numThreads] [-n replNum] ",
         "             [-p physicalPath] [-R resource] [-X restartFile] [--link]",
         "             [--lfrestart lfRestartFile] [--retries count] [--wlock]",
-        "             [--purgec]",
+        "             [--purgec] [--kv_pass=key-value-string] [--metadata=avu-string]",
         "               localSrcFile",
         " ",
         "Store a file into iRODS.  If the destination data-object or collection are",
@@ -190,7 +178,7 @@ usage() {
         " -N  numThreads - the number of threads to use for the transfer. A value of",
         "       0 means no threading. By default (-N option not used) the server ",
         "       decides the number of threads to use.",
-        " --purgec  Purge the staged cache copy after uploading an object to a", // JMC - backport 4537
+        " --purgec  Purge the staged cache copy after uploading an object to a",
         "     COMPOUND resource",
         " -p  physicalPath - the absolute physical path of the uploaded file on the server ",
         " -P  output the progress of the upload.",
@@ -211,6 +199,11 @@ usage() {
         "       on and the lfRestartFile input specifies a local file that contains",
         "       the restart information.",
         " --wlock - use advisory write (exclusive) lock for the upload",
+        " --kv_pass - pass quoted key-value strings throught to the resource hierarchy,",
+        "             of the form key1=value1;key2=value2",
+        " --metadata - atomically assign metadata after a data object is registered in",
+        "              the catalog. Metadata is encoded into a quoted string of the",
+        "              form attr1;val1;unit1;attr2;val2;unit2;",
         " -h  this help",
         ""
     };

@@ -90,21 +90,16 @@
 
 #define MASTER_RCAT	0
 #define SLAVE_RCAT	1
-#define MAX_SZ_FOR_SINGLE_BUF     (32*1024*1024)
 #define INIT_SZ_FOR_EXECMD_BUF     (16*1024)
 #define MAX_SZ_FOR_EXECMD_BUF     (1*1024*1024)
 #define MIN_SZ_FOR_PARA_TRAN     (1*1024*1024)
-#define TRANS_BUF_SZ    (4*1024*1024)
-#define CRYPT_BUF_SZ    2*TRANS_BUF_SZ
 #define TRANS_SZ        (40*1024*1024)
 #define LARGE_SPACE     1000000000
 #define UNKNOWN_FILE_SZ	-99	/* value to indicate the file sz is unknown */
 #define MIN_RESTART_SIZE	(64*1024*1024)
 #define RESTART_FILE_UPDATE_SIZE  (32*1024*1024)
 
-#define DEF_NUM_TRAN_THR        4
 #define MAX_NUM_CONFIG_TRAN_THR        64
-#define SZ_PER_TRAN_THR         (32*1024*1024)
 
 /* definition for numThreads input */
 
@@ -149,10 +144,6 @@
 #define BULK_OPR_BUF_SIZE	(8*MAX_BULK_OPR_FILE_SIZE)
 #define TAR_OVERHEAD		(MAX_NUM_BULK_OPR_FILES * MAX_NAME_LEN * 2)
 
-/* definition for SYS_TIMING */
-/* #define SYS_TIMING	1 */	/* switch on or offf SYS_TIMING */
-#define SYS_TIMING_SEC     "sysTimingSec"    /* timing env var in sec */
-#define SYS_TIMING_USEC    "sysTimingUSec"   /* timing env var in micro sec */
 
 /* generic return value for policy rules */
 #define POLICY_OFF	0

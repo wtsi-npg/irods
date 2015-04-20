@@ -10,6 +10,7 @@
 #include "getUtil.hpp"
 #include "irods_client_api_table.hpp"
 #include "irods_pack_table.hpp"
+#include "irods_parse_command_line_options.hpp"
 
 void usage();
 
@@ -19,44 +20,33 @@ main( int argc, char **argv ) {
     signal( SIGPIPE, SIG_IGN );
 
     int status;
-    rodsEnv myEnv;
     rErrMsg_t errMsg;
     rcComm_t *conn;
     rodsArguments_t myRodsArgs;
-    char *optStr;
     rodsPathInp_t rodsPathInp;
     int reconnFlag;
 
 
-    optStr = "hfIKN:n:PQrt:vVX:R:TZ";
-
-    status = parseCmdLineOpt( argc, argv, optStr, 1, &myRodsArgs );
-
-    if ( status < 0 ) {
-        printf( "Use -h for help.\n" );
-        exit( 1 );
-    }
-    if ( myRodsArgs.help == True ) {
-        usage();
-        exit( 0 );
-    }
-
+    rodsEnv myEnv;
     status = getRodsEnv( &myEnv );
-
     if ( status < 0 ) {
         rodsLogError( LOG_ERROR, status, "main: getRodsEnv error. " );
         exit( 1 );
     }
 
-    status = parseCmdLinePath( argc, argv, optind, &myEnv,
-                               UNKNOWN_OBJ_T, UNKNOWN_FILE_T, 0, &rodsPathInp );
+    int p_err = parse_opts_and_paths(
+                    argc,
+                    argv,
+                    myRodsArgs,
+                    &myEnv,
+                    UNKNOWN_OBJ_T,
+                    UNKNOWN_FILE_T,
+                    0,
+                    &rodsPathInp );
+    if( p_err < 0 ) {
+        return p_err;
 
-    if ( status < 0 ) {
-        rodsLogError( LOG_ERROR, status, "main: parseCmdLinePath error. " );
-        printf( "Use -h for help.\n" );
-        exit( 1 );
     }
-
     if ( myRodsArgs.reconnect == True ) {
         reconnFlag = RECONN_TIMEOUT;
     }
@@ -185,6 +175,8 @@ usage() {
         "      the restart info.",
         " -t  ticket - ticket (string) to use for ticket-based access.",
         " --rlock - use advisory read lock for the download",
+        " --kv_pass - pass quoted key-value strings through to the resource hierarchy,",
+        "             of the form key1=value1;key2=value2",
         " -h  this help",
         ""
     };

@@ -3,14 +3,13 @@
 /* This is script-generated code (for the most part).  */
 /* See dataObjClose.h for a description of this API call.*/
 
-/* XXXXXX take me out. For testing only */
-/* #define TEST_QUE_RULE        1 */
 
 #include "dataObjClose.hpp"
 #include "rodsLog.hpp"
 #include "reFuncDefs.hpp"
 #include "regReplica.hpp"
 #include "modDataObjMeta.hpp"
+#include "modAVUMetadata.hpp"
 #include "dataObjOpr.hpp"
 #include "objMetaOpr.hpp"
 #include "physPath.hpp"
@@ -30,18 +29,14 @@
 #include "dataObjLock.hpp" // JMC - backport 4604
 #include "getRescQuota.hpp"
 
-#ifdef LOG_TRANSFERS
-#include <sys/time.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-#endif
 
 // =-=-=-=-=-=-=-
 #include "irods_resource_backport.hpp"
 #include "irods_stacktrace.hpp"
 #include "irods_hierarchy_parser.hpp"
 #include "irods_file_object.hpp"
+#include "irods_serialization.hpp"
+#include "irods_exception.hpp"
 
 
 int
@@ -61,10 +56,6 @@ irsDataObjClose(
     openedDataObjInp_t myDataObjCloseInp;
     int l1descInx;
     ruleExecInfo_t rei;
-#ifdef TEST_QUE_RULE
-    bytesBuf_t *packedReiAndArgBBuf = NULL;;
-    ruleExecSubmitInp_t ruleExecSubmitInp;
-#endif
     l1descInx = dataObjCloseInp->l1descInx;
     if ( l1descInx <= 2 || l1descInx >= NUM_L1_DESC ) {
         rodsLog( LOG_NOTICE,
@@ -156,35 +147,11 @@ irsDataObjClose(
                 initReiWithDataObjInp( &rei, rsComm,
                                        L1desc[l1descInx].dataObjInp );
                 rei.doi = L1desc[l1descInx].dataObjInfo;
-#ifdef TEST_QUE_RULE
-                status = packReiAndArg( &rei, NULL, 0,
-                                        &packedReiAndArgBBuf );
-                if ( status < 0 ) {
-                    rodsLog( LOG_ERROR,
-                             "rsDataObjClose: packReiAndArg error" );
-                }
-                else {
-                    memset( &ruleExecSubmitInp, 0, sizeof( ruleExecSubmitInp ) );
-                    rstrcpy( ruleExecSubmitInp.ruleName, "acPostProcForPut",
-                             NAME_LEN );
-                    rstrcpy( ruleExecSubmitInp.userName, rei.uoic->userName,
-                             NAME_LEN );
-                    ruleExecSubmitInp.packedReiAndArgBBuf = packedReiAndArgBBuf;
-                    getNowStr( ruleExecSubmitInp.exeTime );
-                    status = rsRuleExecSubmit( rsComm, &ruleExecSubmitInp );
-                    free( packedReiAndArgBBuf );
-                    if ( status < 0 ) {
-                        rodsLog( LOG_ERROR,
-                                 "rsDataObjClose: rsRuleExecSubmit failed" );
-                    }
-                }
-#else
                 rei.status = status;
                 rei.status = applyRule( "acPostProcForPut", NULL, &rei,
                                         NO_SAVE_REI );
                 /* doi might have changed */
                 L1desc[l1descInx].dataObjInfo = rei.doi;
-#endif
             }
             else if ( L1desc[l1descInx].dataObjInp != NULL &&
                       L1desc[l1descInx].dataObjInp->oprType == PHYMV_OPR ) {
@@ -219,79 +186,6 @@ irsDataObjClose(
 
     return status;
 }
-
-#ifdef LOG_TRANSFERS
-/* The log-transfers feature is manually enabled by editing
-   server/Makefile to include a 'CFLAGS += -DLOG_TRANSFERS'.  We do
-   not recommend enabling this as it will add a lot of entries to the
-   server log file and increase overhead, but when enabled file
-   transfers will be logged.  Currently, the operations logged are
-   get, put, replicate, and rsync.  The start time is when the
-   file is openned and the end time is when closed (but before the
-   post-processing rule is executed).
-
-   Each server will log it's transfers in it's own log file.
-
-   See the code for details of what is logged.  You may want to tailor
-   this code to your specific interests.
-*/
-int
-logTransfer( char *oprType, char *objPath, rodsLong_t fileSize,
-             struct timeval *startTime, char *rescName, char *userName,
-             char *hostName ) {
-    struct timeval diffTime;
-    char myDir[MAX_NAME_LEN], myFile[MAX_NAME_LEN];
-    float transRate, sizeInMb, timeInSec;
-    int status;
-    struct timeval endTime;
-
-    ( void )gettimeofday( &endTime, ( struct timezone * )0 );
-
-
-    if ( ( status = splitPathByKey( objPath, myDir, MAX_NAME_LEN, myFile, MAX_NAME_LEN, '/' ) ) < 0 ) {
-        rodsLogError( LOG_NOTICE, status,
-                      "printTiming: splitPathByKey for %s error, status = %d",
-                      objPath, status );
-        return status;
-    }
-
-    diffTime.tv_sec = endTime.tv_sec - startTime->tv_sec;
-    diffTime.tv_usec = endTime.tv_usec - startTime->tv_usec;
-
-    if ( diffTime.tv_usec < 0 ) {
-        diffTime.tv_sec --;
-        diffTime.tv_usec += 1000000;
-    }
-
-    timeInSec = ( float ) diffTime.tv_sec + ( ( float ) diffTime.tv_usec /
-                1000000.0 );
-
-    if ( fileSize <= 0 ) {
-        transRate = 0.0;
-        sizeInMb = 0.0;
-    }
-    else {
-        sizeInMb = ( float ) fileSize / 1048600.0;
-        if ( timeInSec == 0.0 ) {
-            transRate = 0.0;
-        }
-        else {
-            transRate = sizeInMb / timeInSec;
-        }
-    }
-
-    if ( fileSize < 0 ) {
-        rodsLog( LOG_NOTICE, "Transfer %.3f sec %s %s %s %s %s\n",
-                 timeInSec, oprType, rescName, objPath, hostName );
-    }
-    else {
-        rodsLog( LOG_NOTICE, "Transfer %10.3f MB | %.3f sec | %6.3f MB/s %s %s %s %s %s\n",
-                 sizeInMb, timeInSec, transRate, oprType, rescName,
-                 objPath, userName, hostName );
-    }
-    return 0;
-}
-#endif
 
 int _modDataObjSize(
     rsComm_t* _comm,
@@ -394,17 +288,7 @@ _rsDataObjClose(
                               L1desc[l1descInx].dataObjInfo->objPath );
             }
         }
-        // =-=-=-=-=-=-=-
-#ifdef LOG_TRANSFERS
-        if ( L1desc[l1descInx].oprType == GET_OPR ) {
-            logTransfer( "get", L1desc[l1descInx].dataObjInfo->objPath,
-                         L1desc[l1descInx].dataObjInfo->dataSize,
-                         &L1desc[l1descInx].openStartTime,
-                         L1desc[l1descInx].dataObjInfo->rescName,
-                         rsComm->clientUser.userName,
-                         inet_ntoa( rsComm->remoteAddr.sin_addr ) );
-        }
-#endif
+
         return status;
     }
 
@@ -666,14 +550,81 @@ _rsDataObjClose(
         modDataObjMetaInp.regParam = &regParam;
 
         status = rsModDataObjMeta( rsComm, &modDataObjMetaInp );
-
-
         clearKeyVal( &regParam );
 
         if ( status < 0 ) {
             free( chksumStr );
             return status;
         }
+
+        if ( const char* serialized_acl = getValByKey( &L1desc[l1descInx].dataObjInp->condInput, ACL_INCLUDED_KW ) ) {
+            std::vector<std::vector<std::string> > deserialized_acl;
+            try {
+                deserialized_acl = irods::deserialize_acl( serialized_acl );
+            }
+            catch ( const irods::exception& e ) {
+                rodsLog( LOG_ERROR, "%s", e.what() );
+                if ( L1desc[l1descInx].dataObjInp->oprType == PUT_OPR ) {
+                    rsDataObjUnlink( rsComm, L1desc[l1descInx].dataObjInp );
+                }
+                return e.code();
+            }
+            for ( std::vector<std::vector<std::string> >::const_iterator iter = deserialized_acl.begin(); iter != deserialized_acl.end(); ++iter ) {
+                modAccessControlInp_t modAccessControlInp;
+                modAccessControlInp.recursiveFlag = 0;
+                modAccessControlInp.accessLevel = strdup ( ( *iter )[1].c_str() );
+                modAccessControlInp.userName = ( char * )malloc( sizeof( char ) * NAME_LEN );
+                modAccessControlInp.zone = ( char * )malloc( sizeof( char ) * NAME_LEN );
+                splitUserName( ( *iter )[0].c_str(), modAccessControlInp.userName, modAccessControlInp.zone );
+                modAccessControlInp.path = strdup( L1desc[l1descInx].dataObjInfo->objPath );
+                int status = rsModAccessControl( rsComm, &modAccessControlInp );
+                clearModAccessControlInp( &modAccessControlInp );
+                if ( status < 0 ) {
+                    rodsLog( LOG_ERROR, "rsModAccessControl failed in _rsDataObjClose with status %d", status );
+                    if ( L1desc[l1descInx].dataObjInp->oprType == PUT_OPR ) {
+                        rsDataObjUnlink( rsComm, L1desc[l1descInx].dataObjInp );
+                    }
+                    return status;
+                }
+            }
+        }
+
+        if ( const char* serialized_metadata = getValByKey( &L1desc[l1descInx].dataObjInp->condInput, METADATA_INCLUDED_KW ) ) {
+            std::vector<std::string> deserialized_metadata;
+            try {
+                deserialized_metadata = irods::deserialize_metadata( serialized_metadata );
+            }
+            catch ( const irods::exception& e ) {
+                rodsLog( LOG_ERROR, "%s", e.what() );
+                if ( L1desc[l1descInx].dataObjInp->oprType == PUT_OPR ) {
+                    rsDataObjUnlink( rsComm, L1desc[l1descInx].dataObjInp );
+                }
+                return e.code();
+            }
+            for ( size_t i = 0; i + 2 < deserialized_metadata.size(); i += 3 ) {
+                modAVUMetadataInp_t modAVUMetadataInp;
+                memset( &modAVUMetadataInp, 0, sizeof( modAVUMetadataInp ) );
+
+                modAVUMetadataInp.arg0 = strdup( "add" );
+                modAVUMetadataInp.arg1 = strdup( "-d" );
+                modAVUMetadataInp.arg2 = strdup( L1desc[l1descInx].dataObjInfo->objPath );
+                modAVUMetadataInp.arg3 = strdup( deserialized_metadata[i].c_str() );
+                modAVUMetadataInp.arg4 = strdup( deserialized_metadata[i + 1].c_str() );
+                modAVUMetadataInp.arg5 = strdup( deserialized_metadata[i + 2].c_str() );
+
+                int status = rsModAVUMetadata( rsComm, &modAVUMetadataInp );
+                clearModAVUMetadataInp( &modAVUMetadataInp );
+                if ( status < 0 ) {
+                    rodsLog( LOG_ERROR, "rsModAVUMetadata failed in _rsDataObjClose with status %d", status );
+                    if ( L1desc[l1descInx].dataObjInp->oprType == PUT_OPR ) {
+                        rsDataObjUnlink( rsComm, L1desc[l1descInx].dataObjInp );
+                    }
+                    return status;
+                }
+            }
+        }
+
+
         if ( L1desc[l1descInx].replStatus == NEWLY_CREATED_COPY ) {
             /* update quota overrun */
             updatequotaOverrun( L1desc[l1descInx].dataObjInfo->rescHier,
@@ -699,46 +650,6 @@ _rsDataObjClose(
     /* for post processing */
     L1desc[l1descInx].bytesWritten =
         L1desc[l1descInx].dataObjInfo->dataSize = newSize;
-
-#ifdef LOG_TRANSFERS
-    /* transfer logging */
-    if ( L1desc[l1descInx].oprType == PUT_OPR ||
-            L1desc[l1descInx].oprType == CREATE_OPR ) {
-        logTransfer( "put", L1desc[l1descInx].dataObjInfo->objPath,
-                     L1desc[l1descInx].dataObjInfo->dataSize,
-                     &L1desc[l1descInx].openStartTime,
-                     L1desc[l1descInx].dataObjInfo->rescName,
-                     rsComm->clientUser.userName,
-                     inet_ntoa( rsComm->remoteAddr.sin_addr ) );
-
-    }
-    if ( L1desc[l1descInx].oprType == GET_OPR ) {
-        logTransfer( "get", L1desc[l1descInx].dataObjInfo->objPath,
-                     L1desc[l1descInx].dataObjInfo->dataSize,
-                     &L1desc[l1descInx].openStartTime,
-                     L1desc[l1descInx].dataObjInfo->rescName,
-                     rsComm->clientUser.userName,
-                     inet_ntoa( rsComm->remoteAddr.sin_addr ) );
-    }
-    if ( L1desc[l1descInx].oprType == REPLICATE_OPR ||
-            L1desc[l1descInx].oprType == REPLICATE_DEST ) {
-        logTransfer( "replicate", L1desc[l1descInx].dataObjInfo->objPath,
-                     L1desc[l1descInx].dataObjInfo->dataSize,
-                     &L1desc[l1descInx].openStartTime,
-                     L1desc[l1descInx].dataObjInfo->rescName,
-                     rsComm->clientUser.userName,
-                     inet_ntoa( rsComm->remoteAddr.sin_addr ) );
-    }
-    /* Not sure if this happens, irsync might show up as 'put' */
-    if ( L1desc[l1descInx].oprType == RSYNC_OPR ) {
-        logTransfer( "rsync", L1desc[l1descInx].dataObjInfo->objPath,
-                     L1desc[l1descInx].dataObjInfo->dataSize,
-                     &L1desc[l1descInx].openStartTime,
-                     L1desc[l1descInx].dataObjInfo->rescName,
-                     rsComm->clientUser.userName,
-                     inet_ntoa( rsComm->remoteAddr.sin_addr ) );
-    }
-#endif
 
     return status;
 }

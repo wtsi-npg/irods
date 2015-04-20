@@ -51,27 +51,6 @@ static char prevChalSig[200]; /* a 'signature' of the previous
                           challenge.  This is used as a sessionSignature on the ICAT server
                           side.  Also see getSessionSignatureClientside function. */
 
-// =-=-=-=-=-=-=-
-// NOTE :: yanked directly from icatHighLevelRoutines
-/* In 2.3, the METADATA_CLEANUP logic (SQL) (via a
- * 'DISABLE_METADATA_CLEANUP' define) was on by default but it was
- * found to be too slow when moderate amounts of user-defined metadata
- * (AVUs) were defined.  Now, we've improved the SQL to be much faster
- * but also decided to have this off by default.  When AVUs are
- * deleted, the association between the object and the AVU is removed,
- * but the actual AVU triplet remains (and may be associated with
- * other objects).
- *
- * Admins can run the new 'iadmin rum' (remove unused metadata)
- * command if large numbers of rows accumulate (which can slow down
- * meta-data functions), which will remove any AVU triplets not
- * associated with any object.
- *
- * If you want, you can also define METADATA_CLEANUP so this will
- * run each time a user-defined metadata association is deleted.  It may,
- * however, be quite slow.
- #define METADATA_CLEANUP "EACH TIME"
-*/
 
 //   Legal values for accessLevel in  chlModAccessControl (Access Parameter).
 //   Defined here since other code does not need them (except for help messages)
@@ -89,8 +68,6 @@ static rodsLong_t MAX_PASSWORDS = 40;
    iDrop-lite applets enough time to download and go through their
    startup sequence.  iDrop and iDrop-lite disconnect when idle to
    reduce the number of open connections and active agents.  */
-#define TEMP_PASSWORD_TIME 120
-#define TEMP_PASSWORD_MAX_TIME 1000
 
 #define PASSWORD_SCRAMBLE_PREFIX ".E_"
 #define PASSWORD_KEY_ENV_VAR "irodsPKey"
@@ -358,11 +335,7 @@ void removeMetaMapAndAVU( char *dataObjNumber ) {
        there were no rows deleted from R_OBJT_METAMAP, in which case there
        is no need to do the SQL below.
     */
-    if ( status == 0 ) {
-#ifdef METADATA_CLEANUP
-        removeAVUs();
-#endif
-    }
+
     return;
 }
 
@@ -1587,41 +1560,21 @@ findOrInsertAVU( char *attribute, char *value, char *units ) {
 
 
 /* create a path name with escaped SQL special characters (% and _) */
-void
-makeEscapedPath( const std::string &inPath, char *outPath, int size ) {
-    snprintf( outPath, size, "%s", boost::regex_replace( inPath, boost::regex( "[%_]" ), "\\$&" ).c_str() );
-    return;
+std::string
+makeEscapedPath( const std::string &inPath ) {
+    return boost::regex_replace( inPath, boost::regex( "[%_\\\\]" ), "\\\\$&" );
 }
 
 /* Internal routine to modify inheritance */
 /* inheritFlag =1 to set, 2 to remove */
-int _modInheritance( int inheritFlag, int recursiveFlag, char *collIdStr, char *pathName ) {
-    rodsLong_t status;
+int _modInheritance( int inheritFlag, int recursiveFlag, const char *collIdStr, const char *pathName ) {
+
+    const char* newValue = inheritFlag == 1 ? "1" : "0";
+
     char myTime[50];
-    char newValue[10];
-    char tmpPath[MAX_NAME_LEN * 2];
-    char pathStart[MAX_NAME_LEN * 2 + 2];
-    char auditStr[30];
-
-    if ( recursiveFlag == 0 ) {
-        strcpy( auditStr, "inheritance non-recursive " );
-    }
-    else {
-        strcpy( auditStr, "inheritance recursive " );
-    }
-
-    if ( inheritFlag == 1 ) {
-        newValue[0] = '1';
-        newValue[1] = '\0';
-    }
-    else {
-        newValue[0] = '0';
-        newValue[1] = '\0';
-    }
-    strcat( auditStr, newValue );
-
     getNowStr( myTime );
 
+    rodsLong_t status;
     /* non-Recursive mode */
     if ( recursiveFlag == 0 ) {
 
@@ -1638,13 +1591,12 @@ int _modInheritance( int inheritFlag, int recursiveFlag, char *collIdStr, char *
     }
     else {
         /* Recursive mode */
-        makeEscapedPath( pathName, tmpPath, sizeof( tmpPath ) );
-        snprintf( pathStart, sizeof( pathStart ), "%s/%%", tmpPath );
+        std::string pathStart = makeEscapedPath( pathName ) + "/%";
 
         cllBindVars[cllBindVarCount++] = newValue;
         cllBindVars[cllBindVarCount++] = myTime;
         cllBindVars[cllBindVarCount++] = pathName;
-        cllBindVars[cllBindVarCount++] = pathStart;
+        cllBindVars[cllBindVarCount++] = pathStart.c_str();
         if ( logSQL != 0 ) {
             rodsLog( LOG_SQL, "_modInheritance SQL 2" );
         }
@@ -1656,6 +1608,11 @@ int _modInheritance( int inheritFlag, int recursiveFlag, char *collIdStr, char *
         _rollback( "_modInheritance" );
         return status;
     }
+
+    char auditStr[30];
+    snprintf( auditStr, sizeof( auditStr ), "inheritance %srecursive %s",
+            recursiveFlag ? "" : "non-",
+            newValue );
 
     /* Audit */
     status = cmlAudit5( AU_MOD_ACCESS_CONTROL_COLL,
@@ -3084,7 +3041,7 @@ extern "C" {
 
         // =-=-=-=-=-=-=-
         // check the params
-        if ( 
+        if (
                 !_src_data_obj_info ||
                 !_dst_data_obj_info ||
                 !_cond_input ) {
@@ -3315,7 +3272,7 @@ extern "C" {
 
         // =-=-=-=-=-=-=-
         // check the params
-        if ( 
+        if (
                 !_data_obj_info ) {
             return ERROR(
                        CAT_INVALID_ARGUMENT,
@@ -3591,7 +3548,7 @@ extern "C" {
 
         // =-=-=-=-=-=-=-
         // check the params
-        if ( 
+        if (
                 !_re_sub_inp ) {
             return ERROR(
                        CAT_INVALID_ARGUMENT,
@@ -3709,7 +3666,7 @@ extern "C" {
 
         // =-=-=-=-=-=-=-
         // check the params
-        if ( 
+        if (
                 !_re_id  ||
                 !_reg_param ) {
             return ERROR(
@@ -3837,7 +3794,7 @@ extern "C" {
 
         // =-=-=-=-=-=-=-
         // check the params
-        if ( 
+        if (
                 !_re_id ) {
             return ERROR(
                        CAT_INVALID_ARGUMENT,
@@ -4799,7 +4756,7 @@ extern "C" {
 
         // =-=-=-=-=-=-=-
         // check the params
-        if ( 
+        if (
                 !_user_info ) {
             return ERROR(
                        CAT_INVALID_ARGUMENT,
@@ -4996,7 +4953,7 @@ extern "C" {
 
         // =-=-=-=-=-=-=-
         // check the params
-        if ( 
+        if (
                 !_coll_info ) {
             return ERROR(
                        CAT_INVALID_ARGUMENT,
@@ -5211,7 +5168,7 @@ extern "C" {
 
         // =-=-=-=-=-=-=-
         // check the params
-        if ( 
+        if (
                 !_coll_info ) {
             return ERROR(
                        CAT_INVALID_ARGUMENT,
@@ -5448,7 +5405,7 @@ extern "C" {
 
         // =-=-=-=-=-=-=-
         // check the params
-        if ( 
+        if (
                 !_coll_info ) {
             return ERROR(
                        CAT_INVALID_ARGUMENT,
@@ -5600,7 +5557,7 @@ extern "C" {
 
         // =-=-=-=-=-=-=-
         // check the params
-        if ( 
+        if (
                 !_zone_name ||
                 !_zone_type ||
                 !_zone_conn_info ||
@@ -5724,7 +5681,7 @@ extern "C" {
 
         // =-=-=-=-=-=-=-
         // check the params
-        if ( 
+        if (
                 !_zone_name ||
                 !_option ||
                 !_option_value ) {
@@ -5897,7 +5854,7 @@ extern "C" {
 
         // =-=-=-=-=-=-=-
         // check the params
-        if ( 
+        if (
                 !_old_coll ||
                 !_new_coll ) {
             return ERROR(
@@ -5963,7 +5920,7 @@ extern "C" {
 
         // =-=-=-=-=-=-=-
         // check the params
-        if ( 
+        if (
                 !_access_level ||
                 !_user_name ||
                 !_path_name ) {
@@ -6022,7 +5979,7 @@ extern "C" {
 
         // =-=-=-=-=-=-=-
         // check the params
-        if ( 
+        if (
                 !_old_zone ||
                 !_new_zone ) {
             return ERROR(
@@ -6234,7 +6191,7 @@ extern "C" {
 
         // =-=-=-=-=-=-=-
         // check the params
-        if ( 
+        if (
                 !_zone_name ) {
             return ERROR(
                        CAT_INVALID_ARGUMENT,
@@ -6646,7 +6603,7 @@ extern "C" {
 
         // =-=-=-=-=-=-=-
         // check the params
-        if ( 
+        if (
                 !_coll_info ) {
             return ERROR(
                        CAT_INVALID_ARGUMENT,
@@ -6814,7 +6771,7 @@ extern "C" {
 
         // =-=-=-=-=-=-=-
         // check the params
-        if ( 
+        if (
                 !_coll_info ) {
             return ERROR(
                        CAT_INVALID_ARGUMENT,
@@ -6929,6 +6886,7 @@ extern "C" {
         snprintf( lastPwModTs, sizeof( lastPwModTs ), "0" );
         char *cPwTs = NULL;
         int iTs1 = 0, iTs2 = 0;
+        int temp_password_max_time = 0;
         std::vector<char> pwInfoArray( MAX_PASSWORD_LEN * MAX_PASSWORDS * 4 );
 
         if ( logSQL != 0 ) {
@@ -7153,8 +7111,21 @@ extern "C" {
             }
         }
 
+        ret = irods::get_advanced_setting<int>(
+                  irods::CFG_MAX_TEMP_PASSWORD_LIFETIME,
+                  temp_password_max_time );
+        if( !ret.ok() ) {
+            return PASS( ret );
+        }
 
-        if ( expireTime < TEMP_PASSWORD_MAX_TIME ) {
+        if ( expireTime < temp_password_max_time ) {
+            int temp_password_time = 0;
+            ret = irods::get_advanced_setting<int>(
+                      irods::CFG_DEF_TEMP_PASSWORD_LIFETIME,
+                      temp_password_time );
+            if( !ret.ok() ) {
+                return PASS( ret );
+            }
 
             /* in the form used by temporary, one-time passwords */
 
@@ -7196,10 +7167,10 @@ extern "C" {
             if ( logSQL != 0 ) {
                 rodsLog( LOG_SQL, "chlCheckAuth SQL 3" );
             }
-            snprintf( expireStr, sizeof expireStr, "%d", TEMP_PASSWORD_TIME );
+            snprintf( expireStr, sizeof expireStr, "%d", temp_password_time );
             cllBindVars[cllBindVarCount++] = expireStr;
 
-            pwExpireMaxCreateTime = nowTime - TEMP_PASSWORD_TIME;
+            pwExpireMaxCreateTime = nowTime - temp_password_time;
             /* Not sure if casting to int is correct but seems OK & avoids warning:*/
             snprintf( expireStrCreate, sizeof expireStrCreate, "%011d",
                       ( int )pwExpireMaxCreateTime );
@@ -7336,12 +7307,20 @@ checkLevel:
 
         // =-=-=-=-=-=-=-
         // check the params
-        if ( 
+        if (
                 !_pw_value_to_hash ||
                 !_other_user ) {
             return ERROR(
                        CAT_INVALID_ARGUMENT,
                        "null parameter" );
+        } 
+        
+        int temp_password_time = 0;
+        ret = irods::get_advanced_setting<int>(
+                  irods::CFG_DEF_TEMP_PASSWORD_LIFETIME,
+                  temp_password_time );
+        if( !ret.ok() ) {
+            return PASS( ret );
         }
 
         // =-=-=-=-=-=-=-
@@ -7392,7 +7371,7 @@ checkLevel:
 
         snprintf( tSQL, MAX_SQL_SIZE,
                   "select rcat_password from R_USER_PASSWORD, R_USER_MAIN where user_name=? and R_USER_MAIN.zone_name=? and R_USER_MAIN.user_id = R_USER_PASSWORD.user_id and pass_expiry_ts != '%d'",
-                  TEMP_PASSWORD_TIME );
+                  temp_password_time );
 
         {
             std::vector<std::string> bindVars;
@@ -7445,7 +7424,7 @@ checkLevel:
         /* Insert the temporary, one-time password */
 
         getNowStr( myTime );
-        sprintf( myTimeExp, "%d", TEMP_PASSWORD_TIME );  /* seconds from create time
+        sprintf( myTimeExp, "%d", temp_password_time );  /* seconds from create time
                                                           when it will expire */
         if ( useOtherUser == 1 ) {
             cllBindVars[cllBindVarCount++] = _other_user;
@@ -7500,11 +7479,19 @@ checkLevel:
 
         // =-=-=-=-=-=-=-
         // check the params
-        if ( 
+        if (
                 !_pw_value_to_hash ) {
             return ERROR(
                        CAT_INVALID_ARGUMENT,
                        "null parameter" );
+        }
+        
+        int temp_password_time = 0;
+        ret = irods::get_advanced_setting<int>(
+                  irods::CFG_DEF_TEMP_PASSWORD_LIFETIME,
+                  temp_password_time );
+        if( !ret.ok() ) {
+            return PASS( ret );
         }
 
         // =-=-=-=-=-=-=-
@@ -7546,7 +7533,7 @@ checkLevel:
 
         snprintf( tSQL, MAX_SQL_SIZE,
                   "select rcat_password from R_USER_PASSWORD, R_USER_MAIN where user_name=? and R_USER_MAIN.zone_name=? and R_USER_MAIN.user_id = R_USER_PASSWORD.user_id and pass_expiry_ts != '%d'",
-                  TEMP_PASSWORD_TIME );
+                  temp_password_time );
 
         {
             std::vector<std::string> bindVars;
@@ -7673,7 +7660,7 @@ checkLevel:
 
         // =-=-=-=-=-=-=-
         // check the params
-        if ( 
+        if (
                 !_user_name ||
                 !_irods_password ) {
             return ERROR(
@@ -7890,7 +7877,7 @@ checkLevel:
 
         // =-=-=-=-=-=-=-
         // check the params
-        if ( 
+        if (
                 !_user_name ||
                 !_option    ||
                 !_new_value ) {
@@ -8258,7 +8245,7 @@ checkLevel:
 
         // =-=-=-=-=-=-=-
         // check the params
-        if ( 
+        if (
                 !_group_name ||
                 !_option     ||
                 !_user_name ) {
@@ -8475,7 +8462,7 @@ checkLevel:
 
         // =-=-=-=-=-=-=-
         // check the params
-        if ( 
+        if (
                 !_resc_name  ||
                 !_option     ||
                 !_option_value ) {
@@ -9045,7 +9032,7 @@ checkLevel:
 
         // =-=-=-=-=-=-=-
         // check the params
-        if ( 
+        if (
                 !_resc_name ||
                 !_old_path  ||
                 !_new_path ) {
@@ -9219,7 +9206,7 @@ checkLevel:
 
         // =-=-=-=-=-=-=-
         // check the params
-        if ( 
+        if (
                 !_resc_name ) {
             return ERROR(
                        CAT_INVALID_ARGUMENT,
@@ -9318,7 +9305,7 @@ checkLevel:
 
         // =-=-=-=-=-=-=-
         // check the params
-        if ( 
+        if (
                 !_user_info ) {
             return ERROR(
                        CAT_INVALID_ARGUMENT,
@@ -9580,7 +9567,7 @@ checkLevel:
 
         // =-=-=-=-=-=-=-
         // check the params
-        if ( 
+        if (
                 !_type   ||
                 !_name   ||
                 !_attribute ) {
@@ -9785,7 +9772,7 @@ checkLevel:
 
         // =-=-=-=-=-=-=-
         // check the params
-        if ( 
+        if (
                 !_type   ||
                 !_name   ||
                 !_attribute ) {
@@ -10156,7 +10143,7 @@ checkLevel:
 
         // =-=-=-=-=-=-=-
         // check the params
-        if ( 
+        if (
                 !_type   ||
                 !_name   ||
                 !_attribute ) {
@@ -10489,7 +10476,7 @@ checkLevel:
 
         // =-=-=-=-=-=-=-
         // check the params
-        if ( 
+        if (
                 !_type   ||
                 !_name   ||
                 !_attribute ) {
@@ -10614,7 +10601,7 @@ checkLevel:
 
         // =-=-=-=-=-=-=-
         // check the params
-        if ( 
+        if (
                 !_type   ||
                 !_name   ||
                 !_attribute ) {
@@ -10855,11 +10842,6 @@ checkLevel:
                 return ERROR( status, "delete failure" );
             }
 
-            /* Remove unused AVU rows, if any */
-#ifdef METADATA_CLEANUP
-            removeAVUs();
-#endif
-
             /* Audit */
             status = cmlAudit3( AU_DELETE_AVU_METADATA,
                                 objIdStr,
@@ -10949,11 +10931,6 @@ checkLevel:
             return ERROR( status, "delete failure" );
         }
 
-        /* Remove unused AVU rows, if any */
-#ifdef METADATA_CLEANUP
-        removeAVUs();
-#endif
-
         /* Audit */
         status = cmlAudit3( AU_DELETE_AVU_METADATA,
                             objIdStr,
@@ -11000,7 +10977,7 @@ checkLevel:
 
         // =-=-=-=-=-=-=-
         // check the params
-        if ( 
+        if (
                 !_type1  ||
                 !_type2  ||
                 !_name1  ||
@@ -11009,19 +10986,6 @@ checkLevel:
 
         }
 
-        // =-=-=-=-=-=-=-
-        // get a postgres object from the context
-        /*irods::postgres_object_ptr pg;
-        ret = make_db_ptr( _ctx.fco(), pg );
-        if ( !ret.ok() ) {
-            return PASS( ret );
-
-        }*/
-
-        // =-=-=-=-=-=-=-
-        // extract the icss property
-//        icatSessionStruct icss;
-//        _ctx.prop_map().get< icatSessionStruct >( ICSS_PROP, icss );
         char myTime[50];
         int status;
         rodsLong_t objId1, objId2;
@@ -11104,11 +11068,11 @@ checkLevel:
 
     irods::error db_mod_access_control_resc_op(
         irods::plugin_context& _ctx,
-        int                    _recursive_flag,
-        char*                  _access_level,
-        char*                  _user_name,
-        char*                  _zone,
-        char*                  _resc_name ) {
+        const int                    _recursive_flag,
+        const char*                  _access_level,
+        const char*                  _user_name,
+        const char*                  _zone,
+        const char*                  _resc_name ) {
         // check the context
         irods::error ret = _ctx.valid();
         if ( !ret.ok() ) {
@@ -11285,46 +11249,16 @@ checkLevel:
 
     irods::error db_mod_access_control_op(
         irods::plugin_context& _ctx,
-        int                    _recursive_flag,
-        char*                  _access_level,
-        char*                  _user_name,
-        char*                  _zone,
-        char*                  _path_name ) {
+        const int                    _recursive_flag,
+        const char*                  _access_level,
+        const char*                  _user_name,
+        const char*                  _zone,
+        const char*                  _path_name ) {
         // check the context
         irods::error ret = _ctx.valid();
         if ( !ret.ok() ) {
             return PASS( ret );
         }
-
-        // =-=-=-=-=-=-=-
-        // get a postgres object from the context
-        /*irods::postgres_object_ptr pg;
-        ret = make_db_ptr( _ctx.fco(), pg );
-        if ( !ret.ok() ) {
-            return PASS( ret );
-
-        }*/
-
-        // =-=-=-=-=-=-=-
-        // extract the icss property
-//        icatSessionStruct icss;
-//        _ctx.prop_map().get< icatSessionStruct >( ICSS_PROP, icss );
-        char *myAccessLev = NULL;
-        char logicalEndName[MAX_NAME_LEN];
-        char logicalParentDirName[MAX_NAME_LEN];
-        char collIdStr[MAX_NAME_LEN];
-        rodsLong_t objId = 0;
-        rodsLong_t status = 0, status1 = 0, status2 = 0, status3 = 0;
-        int rmFlag = 0;
-        rodsLong_t userId = 0;
-        char myTime[50];
-        const char *myZone = 0;
-        char userIdStr[MAX_NAME_LEN];
-        char objIdStr[MAX_NAME_LEN];
-        int inheritFlag = 0;
-        char myAccessStr[LONG_NAME_LEN];
-        int adminMode = 0;
-        rodsLong_t iVal = 0;
 
         if ( logSQL != 0 ) {
             rodsLog( LOG_SQL, "chlModAccessControl" );
@@ -11341,7 +11275,8 @@ checkLevel:
             return PASS( ret );
         }
 
-        adminMode = 0;
+        int adminMode = 0;
+        char myAccessStr[LONG_NAME_LEN];
         if ( strncmp( _access_level, MOD_ADMIN_MODE_PREFIX,
                       strlen( MOD_ADMIN_MODE_PREFIX ) ) == 0 ) {
             if ( _ctx.comm()->clientUser.authInfo.authFlag < LOCAL_PRIV_USER_AUTH ) {
@@ -11354,6 +11289,9 @@ checkLevel:
             adminMode = 1;
         }
 
+        char *myAccessLev = NULL;
+        int rmFlag = 0;
+        int inheritFlag = 0;
         if ( strcmp( _access_level, AP_NULL ) == 0 ) {
             myAccessLev = ACCESS_NULL;
             rmFlag = 1;
@@ -11385,6 +11323,7 @@ checkLevel:
             return ERROR( CATALOG_NOT_CONNECTED, "catalog not connected" );
         }
 
+        int status1;
         if ( adminMode ) {
             /* See if the input path is a collection
                and, if so, get the collectionID */
@@ -11392,17 +11331,18 @@ checkLevel:
                 rodsLog( LOG_SQL, "chlModAccessControl SQL 14" );
             }
             {
+                rodsLong_t iVal = 0;
                 std::vector<std::string> bindVars;
                 bindVars.push_back( _path_name );
                 status1 = cmlGetIntegerValueFromSql(
                               "select coll_id from R_COLL_MAIN where coll_name=?",
                               &iVal, bindVars, &icss );
-            }
-            if ( status1 == CAT_NO_ROWS_FOUND ) {
-                status1 = CAT_UNKNOWN_COLLECTION;
-            }
-            if ( status1 == 0 ) {
-                status1 = iVal;
+                if ( status1 == CAT_NO_ROWS_FOUND ) {
+                    status1 = CAT_UNKNOWN_COLLECTION;
+                }
+                else if ( status1 == 0 ) {
+                    status1 = iVal;
+                }
             }
         }
         else {
@@ -11417,8 +11357,9 @@ checkLevel:
                                    ACCESS_OWN,
                                    &icss );
         }
+        char collIdStr[MAX_NAME_LEN];
         if ( status1 >= 0 ) {
-            snprintf( collIdStr, MAX_NAME_LEN, "%lld", status1 );
+            snprintf( collIdStr, MAX_NAME_LEN, "%d", status1 );
         }
 
         if ( status1 < 0 && inheritFlag != 0 ) {
@@ -11428,9 +11369,13 @@ checkLevel:
             return ERROR( CAT_NO_ACCESS_PERMISSION, errMsg );
         }
 
+        rodsLong_t objId = 0;
+
         /* Not a collection (with access for non-Admin) */
         if ( status1 < 0 ) {
-            status2 = splitPathByKey( _path_name,
+            char logicalEndName[MAX_NAME_LEN];
+            char logicalParentDirName[MAX_NAME_LEN];
+            int status2 = splitPathByKey( _path_name,
                                       logicalParentDirName, MAX_NAME_LEN, logicalEndName, MAX_NAME_LEN, '/' );
             if ( strlen( logicalParentDirName ) == 0 ) {
                 snprintf( logicalParentDirName, sizeof( logicalParentDirName ), "%s", PATH_SEPARATOR );
@@ -11441,18 +11386,19 @@ checkLevel:
                     rodsLog( LOG_SQL, "chlModAccessControl SQL 15" );
                 }
                 {
+                    rodsLong_t iVal = 0;
                     std::vector<std::string> bindVars;
                     bindVars.push_back( logicalEndName );
                     bindVars.push_back( logicalParentDirName );
                     status2 = cmlGetIntegerValueFromSql(
                                   "select data_id from R_DATA_MAIN DM, R_COLL_MAIN CM where DM.data_name=? and DM.coll_id=CM.coll_id and CM.coll_name=?",
                                   &iVal, bindVars, &icss );
-                }
-                if ( status2 == CAT_NO_ROWS_FOUND ) {
-                    status2 = CAT_UNKNOWN_FILE;
-                }
-                if ( status2 == 0 ) {
-                    status2 = iVal;
+                    if ( status2 == CAT_NO_ROWS_FOUND ) {
+                        status2 = CAT_UNKNOWN_FILE;
+                    }
+                    if ( status2 == 0 ) {
+                        status2 = iVal;
+                    }
                 }
             }
             else {
@@ -11469,58 +11415,57 @@ checkLevel:
             if ( status2 > 0 ) {
                 objId = status2;
             }
-        }
+            /* If both failed, it doesn't exist or there's no permission */
+            else if ( status2 < 0 ) {
+                char errMsg[205];
 
-        /* If both failed, it doesn't exist or there's no permission */
-        if ( status1 < 0 && status2 < 0 ) {
-            char errMsg[205];
-
-            if ( status1 == CAT_UNKNOWN_COLLECTION && status2 == CAT_UNKNOWN_FILE ) {
-                snprintf( errMsg, 200,
-                          "Input path is not a collection and not a dataObj: %s",
-                          _path_name );
-                addRErrorMsg( &_ctx.comm()->rError, 0, errMsg );
-                return ERROR( CAT_INVALID_ARGUMENT, "unknown collection or file" );
-            }
-            if ( status1 != CAT_UNKNOWN_COLLECTION ) {
-                if ( logSQL != 0 ) {
-                    rodsLog( LOG_SQL, "chlModAccessControl SQL 12" );
+                if ( status1 == CAT_UNKNOWN_COLLECTION && status2 == CAT_UNKNOWN_FILE ) {
+                    snprintf( errMsg, 200,
+                            "Input path is not a collection and not a dataObj: %s",
+                            _path_name );
+                    addRErrorMsg( &_ctx.comm()->rError, 0, errMsg );
+                    return ERROR( CAT_INVALID_ARGUMENT, "unknown collection or file" );
                 }
-                status3 = cmlCheckDirOwn( _path_name,
-                                          _ctx.comm()->clientUser.userName,
-                                          _ctx.comm()->clientUser.rodsZone,
-                                          &icss );
-                if ( status3 < 0 ) {
-                    return ERROR( status1, "cmlCheckDirOwn failed" );
-                }
-                snprintf( collIdStr, MAX_NAME_LEN, "%lld", status3 );
-            }
-            else {
-                if ( status2 == CAT_NO_ACCESS_PERMISSION ) {
-                    /* See if this user is the owner (with no access, but still
-                       allowed to ichmod) */
+                if ( status1 != CAT_UNKNOWN_COLLECTION ) {
                     if ( logSQL != 0 ) {
-                        rodsLog( LOG_SQL, "chlModAccessControl SQL 13" );
+                        rodsLog( LOG_SQL, "chlModAccessControl SQL 12" );
                     }
-                    status3 = cmlCheckDataObjOwn( logicalParentDirName, logicalEndName,
-                                                  _ctx.comm()->clientUser.userName,
-                                                  _ctx.comm()->clientUser.rodsZone,
-                                                  &icss );
-                    if ( status3 < 0 ) {
-                        _rollback( "chlModAccessControl" );
-                        return ERROR( status2, "cmlCheckDataObjOwn failed" );
+                    int status = cmlCheckDirOwn( _path_name,
+                            _ctx.comm()->clientUser.userName,
+                            _ctx.comm()->clientUser.rodsZone,
+                            &icss );
+                    if ( status < 0 ) {
+                        return ERROR( status1, "cmlCheckDirOwn failed" );
                     }
-                    objId = status3;
+                    snprintf( collIdStr, MAX_NAME_LEN, "%d", status );
                 }
                 else {
-                    return ERROR( status2, "cmlCheckDataObjOnly failed" );
+                    if ( status2 == CAT_NO_ACCESS_PERMISSION ) {
+                        /* See if this user is the owner (with no access, but still
+                           allowed to ichmod) */
+                        if ( logSQL != 0 ) {
+                            rodsLog( LOG_SQL, "chlModAccessControl SQL 13" );
+                        }
+                        int status = cmlCheckDataObjOwn( logicalParentDirName, logicalEndName,
+                                _ctx.comm()->clientUser.userName,
+                                _ctx.comm()->clientUser.rodsZone,
+                                &icss );
+                        if ( status < 0 ) {
+                            _rollback( "chlModAccessControl" );
+                            return ERROR( status2, "cmlCheckDataObjOwn failed" );
+                        }
+                        objId = status;
+                    }
+                    else {
+                        return ERROR( status2, "cmlCheckDataObjOnly failed" );
+                    }
                 }
             }
         }
 
         /* Doing inheritance */
         if ( inheritFlag != 0 ) {
-            status = _modInheritance( inheritFlag, _recursive_flag, collIdStr, _path_name );
+            int status = _modInheritance( inheritFlag, _recursive_flag, collIdStr, _path_name );
             return ERROR( status, "_modInheritance failed" );
         }
 
@@ -11531,12 +11476,9 @@ checkLevel:
             return PASS( ret );
         }
 
-        myZone = _zone;
-        if ( _zone == NULL || strlen( _zone ) == 0 ) {
-            myZone = zone.c_str();
-        }
+        const char *myZone = ( _zone && strlen( _zone ) != 0 ) ? _zone : zone.c_str();
 
-        userId = 0;
+        rodsLong_t userId = 0;
         if ( logSQL != 0 ) {
             rodsLog( LOG_SQL, "chlModAccessControl SQL 3" );
         }
@@ -11544,19 +11486,22 @@ checkLevel:
             std::vector<std::string> bindVars;
             bindVars.push_back( _user_name );
             bindVars.push_back( myZone );
-            status = cmlGetIntegerValueFromSql(
-                         "select user_id from R_USER_MAIN where user_name=? and R_USER_MAIN.zone_name=?",
-                         &userId, bindVars, &icss );
-        }
-        if ( status != 0 ) {
-            if ( status == CAT_NO_ROWS_FOUND ) {
-                return ERROR( CAT_INVALID_USER, "invalid user" );
+            int status = cmlGetIntegerValueFromSql(
+                    "select user_id from R_USER_MAIN where user_name=? and R_USER_MAIN.zone_name=?",
+                    &userId, bindVars, &icss );
+            if ( status != 0 ) {
+                if ( status == CAT_NO_ROWS_FOUND ) {
+                    return ERROR( CAT_INVALID_USER, "invalid user" );
+                }
+                return ERROR( status, "select user_id failure" );
             }
-            return ERROR( status, "select user_id failure" );
         }
 
-        snprintf( userIdStr, MAX_NAME_LEN, "%lld", userId );
-        snprintf( objIdStr, MAX_NAME_LEN, "%lld", objId );
+        char userIdStr[MAX_NAME_LEN];
+        snprintf( userIdStr, sizeof( userIdStr ), "%lld", userId );
+
+        char objIdStr[MAX_NAME_LEN];
+        snprintf( objIdStr, sizeof( objIdStr ), "%lld", objId );
 
         rodsLog( LOG_NOTICE, "recursiveFlag %d", _recursive_flag );
 
@@ -11570,13 +11515,14 @@ checkLevel:
                 if ( logSQL != 0 ) {
                     rodsLog( LOG_SQL, "chlModAccessControl SQL 4" );
                 }
-                status =  cmlExecuteNoAnswerSql(
+                int status = cmlExecuteNoAnswerSql(
                               "delete from R_OBJT_ACCESS where user_id=? and object_id=?",
                               &icss );
                 if ( status != 0 && status != CAT_SUCCESS_BUT_WITH_NO_INFO ) {
                     return ERROR( status, "delete failure" );
                 }
                 if ( rmFlag == 0 ) { /* if not just removing: */
+                    char myTime[50];
                     getNowStr( myTime );
                     cllBindVars[cllBindVarCount++] = objIdStr;
                     cllBindVars[cllBindVarCount++] = userIdStr;
@@ -11586,7 +11532,7 @@ checkLevel:
                     if ( logSQL != 0 ) {
                         rodsLog( LOG_SQL, "chlModAccessControl SQL 5" );
                     }
-                    status =  cmlExecuteNoAnswerSql(
+                    int status = cmlExecuteNoAnswerSql(
                                   "insert into R_OBJT_ACCESS (object_id, user_id, access_type_id, create_ts, modify_ts)  values (?, ?, (select token_id from R_TOKN_MAIN where token_namespace = 'access_type' and token_name = ?), ?, ?)",
                                   &icss );
                     if ( status != 0 ) {
@@ -11619,7 +11565,7 @@ checkLevel:
             if ( logSQL != 0 ) {
                 rodsLog( LOG_SQL, "chlModAccessControl SQL 6" );
             }
-            status =  cmlExecuteNoAnswerSql(
+            int status =  cmlExecuteNoAnswerSql(
                           "delete from R_OBJT_ACCESS where user_id=? and object_id=?",
                           &icss );
             if ( status != 0 && status != CAT_SUCCESS_BUT_WITH_NO_INFO ) {
@@ -11628,7 +11574,7 @@ checkLevel:
             }
             if ( rmFlag ) { /* just removing */
                 /* Audit */
-                status = cmlAudit5( AU_MOD_ACCESS_CONTROL_COLL,
+                int status = cmlAudit5( AU_MOD_ACCESS_CONTROL_COLL,
                                     collIdStr,
                                     userIdStr,
                                     myAccessLev,
@@ -11644,6 +11590,7 @@ checkLevel:
                 return ERROR( status, "commit failure" );
             }
 
+            char myTime[50];
             getNowStr( myTime );
             cllBindVars[cllBindVarCount++] = collIdStr;
             cllBindVars[cllBindVarCount++] = userIdStr;
@@ -11692,10 +11639,8 @@ checkLevel:
         }
 
 
-        char escapedPath[MAX_NAME_LEN * 2];
-        makeEscapedPath( _path_name, escapedPath, sizeof( escapedPath ) );
-        char pathStart[MAX_NAME_LEN * 2];
-        snprintf( pathStart, sizeof( pathStart ), "%s/%%", escapedPath );
+        std::string pathStart = makeEscapedPath( _path_name ) + "/%";
+        int status;
 
 #if (defined ORA_ICAT || defined MY_ICAT)
 #else
@@ -11751,7 +11696,7 @@ checkLevel:
         }
 
         cllBindVars[cllBindVarCount++] = _path_name;
-        cllBindVars[cllBindVarCount++] = pathStart;
+        cllBindVars[cllBindVarCount++] = pathStart.c_str();
         status =  cmlExecuteNoAnswerSql( "insert into R_MOD_ACCESS_TEMP1 (coll_id, coll_name) select  coll_id, coll_name from R_COLL_MAIN where coll_name = ? or coll_name like ?",
                                          &icss );
         if ( status == CAT_SUCCESS_BUT_WITH_NO_INFO ) {
@@ -11768,7 +11713,7 @@ checkLevel:
 
         cllBindVars[cllBindVarCount++] = userIdStr;
         cllBindVars[cllBindVarCount++] = _path_name;
-        cllBindVars[cllBindVarCount++] = pathStart;
+        cllBindVars[cllBindVarCount++] = pathStart.c_str();
 
         if ( logSQL != 0 ) {
             rodsLog( LOG_SQL, "chlModAccessControl SQL 8" );
@@ -11796,7 +11741,7 @@ checkLevel:
 
         cllBindVars[cllBindVarCount++] = userIdStr;
         cllBindVars[cllBindVarCount++] = _path_name;
-        cllBindVars[cllBindVarCount++] = pathStart;
+        cllBindVars[cllBindVarCount++] = pathStart.c_str();
 
         if ( logSQL != 0 ) {
             rodsLog( LOG_SQL, "chlModAccessControl SQL 9" );
@@ -11832,15 +11777,14 @@ checkLevel:
             return ERROR( status, "commit failure" );
         }
 
+        char myTime[50];
         getNowStr( myTime );
-        makeEscapedPath( _path_name, pathStart, sizeof( pathStart ) );
-        strncat( pathStart, "/%", sizeof( pathStart ) );
         cllBindVars[cllBindVarCount++] = userIdStr;
         cllBindVars[cllBindVarCount++] = myAccessLev;
         cllBindVars[cllBindVarCount++] = myTime;
         cllBindVars[cllBindVarCount++] = myTime;
         cllBindVars[cllBindVarCount++] = _path_name;
-        cllBindVars[cllBindVarCount++] = pathStart;
+        cllBindVars[cllBindVarCount++] = pathStart.c_str();
         if ( logSQL != 0 ) {
             rodsLog( LOG_SQL, "chlModAccessControl SQL 10" );
         }
@@ -11874,7 +11818,7 @@ checkLevel:
         cllBindVars[cllBindVarCount++] = myTime;
         cllBindVars[cllBindVarCount++] = myTime;
         cllBindVars[cllBindVarCount++] = _path_name;
-        cllBindVars[cllBindVarCount++] = pathStart;
+        cllBindVars[cllBindVarCount++] = pathStart.c_str();
         if ( logSQL != 0 ) {
             rodsLog( LOG_SQL, "chlModAccessControl SQL 11" );
         }
@@ -16142,7 +16086,7 @@ checkLevel:
 
         // =-=-=-=-=-=-=-
         // fill in the operation table mapping call
-        // names to function names
+        // names to function na,mes
         pg->add_operation( irods::DATABASE_OP_START,                    "db_start_op" );
         pg->add_operation( irods::DATABASE_OP_DEBUG,                    "db_debug_op" );
         pg->add_operation( irods::DATABASE_OP_OPEN,                     "db_open_op" );

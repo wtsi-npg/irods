@@ -22,9 +22,6 @@
 #include "genQuery.hpp"
 #include "rodsClient.hpp"
 #include "reFuncDefs.hpp"
-#ifdef LOG_TRANSFERS
-#include <sys/time.h>
-#endif
 
 // =-=-=-=-=-=-=-
 #include "irods_resource_backport.hpp"
@@ -202,10 +199,7 @@ fillL1desc( int l1descInx, dataObjInp_t *dataObjInp,
             rstrcpy( L1desc[l1descInx].chksum, tmpPtr, NAME_LEN );
         }
     }
-#ifdef LOG_TRANSFERS
-    ( void )gettimeofday( &L1desc[l1descInx].openStartTime,
-                          ( struct timezone * )0 );
-#endif
+
     return 0;
 }
 
@@ -268,7 +262,7 @@ getL1descIndexByDataObjInfo( const dataObjInfo_t * dataObjInfo ) {
 
 int
 getNumThreads( rsComm_t *rsComm, rodsLong_t dataSize, int inpNumThr,
-               keyValPair_t *condInput, char *destRescHier, char *srcRescHier ) {
+               keyValPair_t *condInput, char *destRescHier, char *srcRescHier, int oprType ) {
     ruleExecInfo_t rei;
     dataObjInp_t doinp;
     int status;
@@ -302,6 +296,7 @@ getNumThreads( rsComm_t *rsComm, rodsLong_t dataSize, int inpNumThr,
     doinp.numThreads = inpNumThr;
 
     doinp.dataSize = dataSize;
+    doinp.oprType = oprType;
 
     initReiWithDataObjInp( &rei, rsComm, &doinp );
 
@@ -629,4 +624,3 @@ allocAndSetL1descForZoneOpr( int remoteL1descInx, dataObjInp_t *dataObjInp,
 
     return l1descInx;
 }
-

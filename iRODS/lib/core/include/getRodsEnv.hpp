@@ -51,9 +51,16 @@ typedef struct {
     // control plane parameters
     char irodsCtrlPlaneKey[MAX_NAME_LEN];
     int  irodsCtrlPlanePort;
-
     int  irodsCtrlPlaneEncryptionNumHashRounds;
     char irodsCtrlPlaneEncryptionAlgorithm[ HEADER_TYPE_LEN ];
+    
+    // =-=-=-=-=-=-=-
+    // advanced settings
+    int irodsMaxSizeForSingleBuffer;
+    int irodsDefaultNumberTransferThreads;
+    int irodsMaximumNumberTransferThreads;
+    int irodsTransBufferSizeForParaTrans;
+    
 
 } rodsEnv;
 

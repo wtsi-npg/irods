@@ -433,17 +433,34 @@ initRcatServerHostByFile() {
     // slave icat host
 
     ret = props.get_property< std::string >(
-              LOCAL_ZONE_SID_KW,
+              irods::CFG_ZONE_KEY_KW,
               prop_str );
     if ( ret.ok() ) {
         snprintf( localSID, sizeof( localSID ), "%s", prop_str.c_str() );
     }
     else {
-        irods::log( PASS( ret ) );
-        return ret.code();
+        ret = props.get_property< std::string >(
+                  LOCAL_ZONE_SID_KW,
+                  prop_str );
+        if ( ret.ok() ) {
+            snprintf( localSID, sizeof( localSID ), "%s", prop_str.c_str() );
+        }
+        else {
+            irods::log( PASS( ret ) );
+            return ret.code();
+        }
     }
 
     // try for new federation config
+    std::string neg_key;
+    ret = props.get_property <
+              std::string > (
+                  irods::CFG_NEGOTIATION_KEY_KW,
+                  neg_key );
+    if( !ret.ok() ) {
+        irods::log( PASS( ret ) );
+        return ret.code();
+    }
     array_t fed_arr;
     ret = props.get_property <
           array_t > (
@@ -451,14 +468,15 @@ initRcatServerHostByFile() {
               fed_arr );
     if ( ret.ok() ) {
         for ( size_t i = 0; i < fed_arr.size(); ++i ) {
-            std::string fed_zone_id   = boost::any_cast< std::string >(
-                                            fed_arr[ i ][ irods::CFG_ZONE_ID_KW ] );
+            object_t& obj = fed_arr[ i ];
+            std::string fed_zone_key   = boost::any_cast< std::string >(
+                                            obj[ irods::CFG_ZONE_KEY_KW ] );
             std::string fed_zone_name = boost::any_cast< std::string >(
-                                            fed_arr[ i ][ irods::CFG_ZONE_NAME_KW ] );
-            std::string fed_zone_key = boost::any_cast< std::string >(
-                                           fed_arr[ i ][ irods::CFG_NEGOTIATION_KEY_KW ] );
+                                            obj[irods::CFG_ZONE_NAME_KW ] );
+            std::string fed_zone_negotiation_key = boost::any_cast< std::string >(
+                                           obj[ irods::CFG_NEGOTIATION_KEY_KW ] );
             // store in remote_SID_key_map
-            remote_SID_key_map[fed_zone_name] = std::make_pair( fed_zone_id, fed_zone_key );
+            remote_SID_key_map[fed_zone_name] = std::make_pair( fed_zone_key, fed_zone_negotiation_key );
         }
     }
     else {
@@ -478,11 +496,13 @@ initRcatServerHostByFile() {
                 else {
                     // store in remote_SID_key_map
                     std::string fed_zone_name = rem_sids[i].substr( 0, pos );
-                    std::string fed_zone_id = rem_sids[i].substr( pos + 1 );
-                    remote_SID_key_map[fed_zone_name] = std::make_pair( fed_zone_id, "" );
+                    std::string fed_zone_key = rem_sids[i].substr( pos + 1 );
+                    // use our negotiation key for the old configuration
+                    remote_SID_key_map[fed_zone_name] = std::make_pair( fed_zone_key, neg_key );
                 }
             }
         }
+        
     } // else
 
     return 0;
@@ -1256,10 +1276,6 @@ initConnectControl() {
     FILE *file = fopen( conFile, "r" );
 
     if ( file == NULL ) {
-#ifdef DEBUG_CONNECT_CONTROL
-        fprintf( stderr, "Unable to open CONNECT_CONTROL_FILE file %s\n",
-                 conFile );
-#endif
         free( conFile );
         return 0;
     }

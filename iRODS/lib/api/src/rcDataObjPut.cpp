@@ -109,8 +109,11 @@ rcDataObjPut( rcComm_t *conn, dataObjInp_t *dataObjInp, char *locFilePath ) {
     memset( &conn->transStat, 0, sizeof( transStat_t ) );
     memset( &dataObjInpBBuf, 0, sizeof( dataObjInpBBuf ) );
 
+    rodsEnv env;
+    getRodsEnv( &env );
+    int single_buff_sz = env.irodsMaxSizeForSingleBuffer * 1024 * 1024;
     if ( getValByKey( &dataObjInp->condInput, DATA_INCLUDED_KW ) != NULL ) {
-        if ( dataObjInp->dataSize > MAX_SZ_FOR_SINGLE_BUF ) {
+        if ( dataObjInp->dataSize > single_buff_sz ) {
             rmKeyVal( &dataObjInp->condInput, DATA_INCLUDED_KW );
         }
         else {
@@ -123,7 +126,7 @@ rcDataObjPut( rcComm_t *conn, dataObjInp_t *dataObjInp, char *locFilePath ) {
             }
         }
     }
-    else if ( dataObjInp->dataSize < MAX_SZ_FOR_SINGLE_BUF ) {
+    else if ( dataObjInp->dataSize < single_buff_sz ) {
         addKeyVal( &dataObjInp->condInput, DATA_INCLUDED_KW, "" );
         status = fillBBufWithFile( conn, &dataObjInpBBuf, locFilePath,
                                    dataObjInp->dataSize );
@@ -199,11 +202,14 @@ rcDataObjPut( rcComm_t *conn, dataObjInp_t *dataObjInp, char *locFilePath ) {
                     portalOprOut->portList.portNum, portalOprOut->portList.cookie );
         }
         /* some sanity check */
-        if ( portalOprOut->numThreads >= 20 * DEF_NUM_TRAN_THR ) {
+        rodsEnv env;
+        getRodsEnv( &env );
+        if ( portalOprOut->numThreads >= 20 * env.irodsDefaultNumberTransferThreads ) {
             rcOprComplete( conn, SYS_INVALID_PORTAL_OPR );
             free( portalOprOut );
             return SYS_INVALID_PORTAL_OPR;
         }
+
         conn->transStat.numThreads = portalOprOut->numThreads;
         status = putFileToPortal( conn, portalOprOut, locFilePath,
                                   dataObjInp->objPath, dataObjInp->dataSize );

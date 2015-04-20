@@ -137,9 +137,17 @@ typedef struct {
     int sql;
     int optind;  /* index into argv where non-recognized options begin */
 
-
     int excludeFile;
     char *excludeFileString;
+
+    // =-=-=-=-=-=-=-
+    // atomic metadata put &
+    // kv pass through
+    char* metadata_string;
+    char* acl_string;
+    int kv_pass;
+    char* kv_pass_string;
+
 } rodsArguments_t;
 
 int

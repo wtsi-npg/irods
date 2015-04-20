@@ -18,6 +18,7 @@
 #include "irods_stacktrace.hpp"
 #include "irods_server_properties.hpp"
 #include "irods_hierarchy_parser.hpp"
+#include "irods_kvp_string_parser.hpp"
 
 // =-=-=-=-=-=-=-
 // stl includes
@@ -120,11 +121,21 @@ static irods::error unix_file_copy_plugin(
                 result = ERROR( err_status, msg_stream.str() );
             }
             else {
-                char myBuf[TRANS_BUF_SZ];
+                int trans_buff_size = 0;
+                irods::error ret = irods::get_advanced_setting<int>(
+                                       irods::CFG_TRANS_BUFFER_SIZE_FOR_PARA_TRANS,
+                                       trans_buff_size );
+                if( !ret.ok() ) {
+                    return PASS( ret ); 
+                }
+                trans_buff_size *= 1024 * 1024;
+
+
+                std::vector<char> myBuf( trans_buff_size );
                 int bytesRead;
                 rodsLong_t bytesCopied = 0;
-                while ( result.ok() && ( bytesRead = read( inFd, ( void * ) myBuf, TRANS_BUF_SZ ) ) > 0 ) {
-                    int bytesWritten = write( outFd, ( void * ) myBuf, bytesRead );
+                while ( result.ok() && ( bytesRead = read( inFd, ( void * ) myBuf.data(), trans_buff_size ) ) > 0 ) {
+                    int bytesWritten = write( outFd, ( void * ) myBuf.data(), bytesRead );
                     err_status = UNIX_FILE_WRITE_ERR - errno;
                     if ( ( result = ASSERT_ERROR( bytesWritten > 0, err_status, "Write error for srcFileName %s, status = %d",
                                                   destFileName, status ) ).ok() ) {
@@ -424,6 +435,29 @@ extern "C" {
             // get ref to fco
             irods::file_object_ptr fco = boost::dynamic_pointer_cast< irods::file_object >( _ctx.fco() );
 
+            char* kvp_str = getValByKey(
+                                &fco->cond_input(),
+                                KEY_VALUE_PASSTHROUGH_KW );
+            if( kvp_str ) {
+                irods::kvp_map_t kvp;
+                ret = irods::parse_kvp_string(
+                          kvp_str,
+                          kvp );
+                if( !ret.ok() ) {
+                    irods::log( PASS( ret ) );
+                }
+                else {
+                    irods::kvp_map_t::iterator itr = kvp.begin();
+                    for( ; itr != kvp.end(); ++ itr ) {
+                        rodsLog(
+                            LOG_DEBUG,
+                            "unix_file_create_plugin - kv_pass :: key [%s] - value [%s]",
+                            itr->first.c_str(),
+                            itr->second.c_str() );
+                    } // for itr
+                }
+            }
+
             ret = unix_file_get_fsfreespace_plugin( _ctx );
             if ( ( result = ASSERT_PASS( ret, "Error determining freespace on system." ) ).ok() ) {
                 rodsLong_t file_size = fco->size();
@@ -506,6 +540,29 @@ extern "C" {
             // =-=-=-=-=-=-=-
             // get ref to fco
             irods::file_object_ptr fco = boost::dynamic_pointer_cast< irods::file_object >( _ctx.fco() );
+
+            char* kvp_str = getValByKey(
+                                &fco->cond_input(),
+                                KEY_VALUE_PASSTHROUGH_KW );
+            if( kvp_str ) {
+                irods::kvp_map_t kvp;
+                ret = irods::parse_kvp_string(
+                          kvp_str,
+                          kvp );
+                if( !ret.ok() ) {
+                    irods::log( PASS( ret ) );
+                }
+                else {
+                    irods::kvp_map_t::iterator itr = kvp.begin();
+                    for( ; itr != kvp.end(); ++ itr ) {
+                        rodsLog(
+                            LOG_DEBUG,
+                            "unix_file_open_plugin - kv_pass :: key [%s] - value [%s]",
+                            itr->first.c_str(),
+                            itr->second.c_str() );
+                    } // for itr
+                }
+            }
 
             // =-=-=-=-=-=-=-
             // handle OSX weirdness...
@@ -1014,7 +1071,7 @@ extern "C" {
                 // =-=-=-=-=-=-=-
                 // cast down the hierarchy to the desired object
                 irods::file_object_ptr fco = boost::dynamic_pointer_cast< irods::file_object >( _ctx.fco() );
-                
+
                 // =-=-=-=-=-=-=-
                 // get the default directory mode
                 mode_t mode = 0750;
@@ -1429,6 +1486,7 @@ extern "C" {
                     _context ) {
                     properties_.set<mode_t>( DEFAULT_VAULT_DIR_MODE, 0750 );
 
+
             } // ctor
 
 
@@ -1503,6 +1561,3 @@ extern "C" {
     } // plugin_factory
 
 }; // extern "C"
-
-
-

@@ -30,6 +30,9 @@
 #include "irods_hierarchy_parser.hpp"
 #include "irods_hierarchy_parser.hpp"
 #include "irods_stacktrace.hpp"
+#include "irods_exception.hpp"
+#include "irods_serialization.hpp"
+#include "irods_server_properties.hpp"
 
 int
 rsDataObjPut( rsComm_t *rsComm, dataObjInp_t *dataObjInp,
@@ -44,6 +47,25 @@ rsDataObjPut( rsComm_t *rsComm, dataObjInp_t *dataObjInp,
                        &dataObjInp->condInput );
     remoteFlag = getAndConnRemoteZone( rsComm, dataObjInp, &rodsServerHost,
                                        REMOTE_CREATE );
+
+    if ( const char* acl_string = getValByKey( &dataObjInp->condInput, ACL_INCLUDED_KW ) ) {
+        try {
+            irods::deserialize_acl( acl_string );
+        }
+        catch ( const irods::exception& e ) {
+            rodsLog( LOG_ERROR, "%s", e.what() );
+            return e.code();
+        }
+    }
+    if ( const char* metadata_string = getValByKey( &dataObjInp->condInput, METADATA_INCLUDED_KW ) ) {
+        try {
+            irods::deserialize_metadata( metadata_string );
+        }
+        catch ( const irods::exception& e  ) {
+            rodsLog( LOG_ERROR, "%s", e.what() );
+            return e.code();
+        }
+    }
 
     if ( remoteFlag < 0 ) {
         return remoteFlag;
@@ -427,6 +449,10 @@ l3FilePutSingleBuf( rsComm_t *rsComm, int l1descInx, bytesBuf_t *dataObjInpBBuf 
 
     filePutInp.flags = O_WRONLY | dataObjInp->openFlags;
     rstrcpy( filePutInp.in_pdmo, L1desc[l1descInx].in_pdmo, MAX_NAME_LEN );
+    // kv pasthru
+    copyKeyVal( 
+        &dataObjInfo->condInput,
+        &filePutInp.condInput );
 
     // =-=-=-=-=-=-=-
     // JMC - backport 4774

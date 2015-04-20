@@ -20,6 +20,7 @@
 //
 #include "irods_resource_backport.hpp"
 #include "irods_server_api_table.hpp"
+#include "irods_server_properties.hpp"
 
 /**
  * \fn msiSetDefaultResc (msParam_t *xdefaultRescList, msParam_t *xoptionStr, ruleExecInfo_t *rei)
@@ -744,6 +745,16 @@ msiSetNumThreads( msParam_t *xsizePerThrInMbStr, msParam_t *xmaxNumThrStr,
     maxNumThrStr = ( char * ) xmaxNumThrStr->inOutStruct;
     windowSizeStr = ( char * ) xwindowSizeStr->inOutStruct;
 
+
+    int def_num_thr = 0;
+    irods::error ret = irods::get_advanced_setting( 
+                           irods::CFG_DEF_NUMBER_TRANSFER_THREADS, 
+                           def_num_thr );
+    if( !ret.ok() ) {
+        irods::log( PASS( ret ) );
+        return ret.code();
+    } 
+
     if ( rei->rsComm != NULL ) {
         if ( strcmp( windowSizeStr, "null" ) == 0 ||
                 strcmp( windowSizeStr, "default" ) == 0 ) {
@@ -754,15 +765,25 @@ msiSetNumThreads( msParam_t *xsizePerThrInMbStr, msParam_t *xmaxNumThrStr,
         }
     }
 
+    int size_per_tran_thr = 0;
+    ret = irods::get_advanced_setting<int>(
+              irods::CFG_TRANS_BUFFER_SIZE_FOR_PARA_TRANS,
+              size_per_tran_thr );
+    if( !ret.ok() ) {
+        irods::log( PASS( ret ) );
+        return ret.code(); 
+    }
+    size_per_tran_thr *= 1024 * 1024;
+
     if ( strcmp( sizePerThrInMbStr, "default" ) == 0 ) {
-        sizePerThr = SZ_PER_TRAN_THR;
+        sizePerThr = size_per_tran_thr;
     }
     else {
         sizePerThr = atoi( sizePerThrInMbStr ) * ( 1024 * 1024 );
         if ( sizePerThr <= 0 ) {
             rodsLog( LOG_ERROR,
                      "msiSetNumThreads: Bad input sizePerThrInMb %s", sizePerThrInMbStr );
-            sizePerThr = SZ_PER_TRAN_THR;
+            sizePerThr = size_per_tran_thr;
         }
     }
 
@@ -770,19 +791,19 @@ msiSetNumThreads( msParam_t *xsizePerThrInMbStr, msParam_t *xmaxNumThrStr,
     if ( doinp == NULL ) {
         rodsLog( LOG_ERROR,
                  "msiSetNumThreads: doinp is NULL" );
-        rei->status = DEF_NUM_TRAN_THR;
-        return DEF_NUM_TRAN_THR;
+        rei->status = def_num_thr;
+        return def_num_thr;
     }
 
     if ( strcmp( maxNumThrStr, "default" ) == 0 ) {
-        maxNumThr = DEF_NUM_TRAN_THR;
+        maxNumThr = def_num_thr;
     }
     else {
         maxNumThr = atoi( maxNumThrStr );
         if ( maxNumThr < 0 ) {
             rodsLog( LOG_ERROR,
                      "msiSetNumThreads: Bad input maxNumThr %s", maxNumThrStr );
-            maxNumThr = DEF_NUM_TRAN_THR;
+            maxNumThr = def_num_thr;
         }
         else if ( maxNumThr == 0 ) {
             rei->status = 0;
@@ -797,7 +818,18 @@ msiSetNumThreads( msParam_t *xsizePerThrInMbStr, msParam_t *xmaxNumThrStr,
 
 
     if ( doinp->numThreads > 0 ) {
-        numThr = doinp->dataSize / TRANS_BUF_SZ + 1;
+
+        int trans_buff_size = 0;
+        ret = irods::get_advanced_setting<int>(
+                  irods::CFG_TRANS_BUFFER_SIZE_FOR_PARA_TRANS,
+                  trans_buff_size );
+        if( !ret.ok() ) {
+            irods::log( PASS( ret ) );
+            return ret.code(); 
+        }
+        trans_buff_size *= 1024 * 1024;
+
+        numThr = doinp->dataSize / trans_buff_size + 1;
         if ( numThr > doinp->numThreads ) {
             numThr = doinp->numThreads;
         }
@@ -1399,8 +1431,17 @@ msiSetReServerNumProc( msParam_t *xnumProc, ruleExecInfo_t *rei ) {
     }
     else {
         numProc = atoi( numProcStr );
-        if ( numProc > MAX_RE_PROCS ) {
-            numProc = MAX_RE_PROCS;
+        int max_re_procs = 0;
+        irods::error ret = irods::get_advanced_setting<int>(
+                               irods::CFG_MAX_NUMBER_OF_CONCURRENT_RE_PROCS,
+                               max_re_procs );
+        if( !ret.ok() ) {
+            irods::log( PASS( ret ) );
+            return ret.code(); 
+        }
+
+        if ( numProc > max_re_procs ) {
+            numProc = max_re_procs;
         }
         else if ( numProc < 0 ) {
             numProc = DEF_NUM_RE_PROCS;

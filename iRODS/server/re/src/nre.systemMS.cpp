@@ -17,6 +17,8 @@
 #include "irods_ms_home.hpp"
 #include "reFuncDefs.hpp"
 #include "sockComm.hpp"
+#include "irods_server_properties.hpp"
+#include "irods_log.hpp"
 
 int
 fillSubmitConditions( char *action, char *inDelayCondition, bytesBuf_t *packedReiAndArgBBuf,
@@ -585,15 +587,17 @@ msiSleep( msParam_t* secPtr, msParam_t* microsecPtr,  ruleExecInfo_t* ) {
 }
 
 /**
- * \cond oldruleengine
  * \fn msiApplyAllRules(msParam_t *actionParam, msParam_t* reiSaveFlagParam, msParam_t* allRuleExecFlagParam, ruleExecInfo_t *rei)
  *
- * \brief  This microservice executes all applicable rules for a given action name.
+ * \brief  DEPRECATED - msiApplyAllRules is too ad-hoc and non-deterministic.
+ *      If you need to apply multiple rules and catch the cases where one may fail,
+ *      the best practice is to use the errorcode() and test for the result.
  *
  * \module core
  *
  * \since pre-2.1
  *
+ * \deprecated Since 4.1.0.  Will be removed in 4.2.0
  *
  * \note Normal operations of the rule engine is to stop after a rule (one of the alternates)
  *   completes successfully. But in some cases, one may want the rule engine to try all
@@ -625,7 +629,6 @@ msiSleep( msParam_t* secPtr, msParam_t* microsecPtr,  ruleExecInfo_t* ) {
  * \pre none
  * \post none
  * \sa none
- * \endcond
 **/
 int
 msiApplyAllRules( msParam_t *actionParam, msParam_t* reiSaveFlagParam,
@@ -975,6 +978,15 @@ int
 msiBytesBufToStr( msParam_t* buf_msp, msParam_t* str_msp, ruleExecInfo_t* ) {
     char *outStr;
     bytesBuf_t *inBuf;
+    int single_buff_sz = 0;
+    irods::error ret = irods::get_advanced_setting<int>(
+                           irods::CFG_MAX_SIZE_FOR_SINGLE_BUFFER,
+                           single_buff_sz );
+    if( !ret.ok() ) {
+        irods::log( PASS( ret ) );
+        return ret.code();
+    }
+    single_buff_sz *= 1024 * 1024;
 
     /*check buf_msp */
     if ( buf_msp == NULL || buf_msp->inOutStruct == NULL ) {
@@ -982,7 +994,7 @@ msiBytesBufToStr( msParam_t* buf_msp, msParam_t* str_msp, ruleExecInfo_t* ) {
         return USER__NULL_INPUT_ERR;
     }
     inBuf = buf_msp->inpOutBuf;
-    if ( inBuf->len < 0 || inBuf->len > ( MAX_SZ_FOR_SINGLE_BUF - 10 ) )  {
+    if ( inBuf->len < 0 || inBuf->len > ( single_buff_sz - 10 ) )  {
         rodsLog( LOG_ERROR, "msiBytesBufToStr: input buf_msp is NULL." );
         return USER_INPUT_FORMAT_ERR;
     }

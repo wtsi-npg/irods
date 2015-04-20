@@ -305,6 +305,14 @@ initCondForPut( rcComm_t *conn, rodsEnv *myRodsEnv, rodsArguments_t *rodsArgs,
 
     memset( dataObjOprInp, 0, sizeof( dataObjInp_t ) );
 
+    if ( rodsArgs->kv_pass ) {
+        addKeyVal( 
+            &dataObjOprInp->condInput,
+            KEY_VALUE_PASSTHROUGH_KW,
+            rodsArgs->kv_pass_string );
+
+    }
+
     if ( rodsArgs->bulk == True ) {
         if ( bulkOprInp == NULL ) {
             rodsLog( LOG_ERROR,
@@ -515,6 +523,14 @@ initCondForPut( rcComm_t *conn, rodsEnv *myRodsEnv, rodsArguments_t *rodsArgs,
     if ( rodsArgs->rlock == True ) { // JMC - backport 4612
         rodsLog( LOG_ERROR, "initCondForPut: --rlock not supported, changing it to --wlock" );
         addKeyVal( &dataObjOprInp->condInput, LOCK_TYPE_KW, WRITE_LOCK_TYPE );
+    }
+
+    if( rodsArgs->metadata_string != NULL && strlen( rodsArgs->metadata_string ) != 0 ) {
+        addKeyVal( &dataObjOprInp->condInput, METADATA_INCLUDED_KW, rodsArgs->metadata_string );
+    }
+
+    if( rodsArgs->acl_string != NULL && strlen( rodsArgs->acl_string ) != 0 ) {
+        addKeyVal( &dataObjOprInp->condInput, ACL_INCLUDED_KW, rodsArgs->acl_string );
     }
 
     return 0;

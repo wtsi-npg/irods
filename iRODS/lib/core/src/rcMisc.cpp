@@ -3738,25 +3738,29 @@ clearSendXmsgInfo( sendXmsgInfo_t * sendXmsgInfo ) {
 }
 
 void
-freeStringIfNotNull( char * str ) {
-    if ( str != NULL ) {
-        free( str );
-    }
+clearModAccessControlInp( void* voidInp ) {
+    modAccessControlInp_t * modAccessControlInp = ( modAccessControlInp_t* )voidInp;
+    free( modAccessControlInp->accessLevel );
+    free( modAccessControlInp->userName );
+    free( modAccessControlInp->zone );
+    free( modAccessControlInp->path );
+    memset( modAccessControlInp, 0, sizeof( modAccessControlInp_t ) );
+    return;
 }
 
 void
 clearModAVUMetadataInp( void* voidInp ) {
     modAVUMetadataInp_t * modAVUMetadataInp = ( modAVUMetadataInp_t* )voidInp;
-    freeStringIfNotNull( modAVUMetadataInp->arg0 );
-    freeStringIfNotNull( modAVUMetadataInp->arg1 );
-    freeStringIfNotNull( modAVUMetadataInp->arg2 );
-    freeStringIfNotNull( modAVUMetadataInp->arg3 );
-    freeStringIfNotNull( modAVUMetadataInp->arg4 );
-    freeStringIfNotNull( modAVUMetadataInp->arg5 );
-    freeStringIfNotNull( modAVUMetadataInp->arg6 );
-    freeStringIfNotNull( modAVUMetadataInp->arg7 );
-    freeStringIfNotNull( modAVUMetadataInp->arg8 );
-    freeStringIfNotNull( modAVUMetadataInp->arg9 );
+    free( modAVUMetadataInp->arg0 );
+    free( modAVUMetadataInp->arg1 );
+    free( modAVUMetadataInp->arg2 );
+    free( modAVUMetadataInp->arg3 );
+    free( modAVUMetadataInp->arg4 );
+    free( modAVUMetadataInp->arg5 );
+    free( modAVUMetadataInp->arg6 );
+    free( modAVUMetadataInp->arg7 );
+    free( modAVUMetadataInp->arg8 );
+    free( modAVUMetadataInp->arg9 );
     memset( modAVUMetadataInp, 0, sizeof( modAVUMetadataInp_t ) );
     return;
 }

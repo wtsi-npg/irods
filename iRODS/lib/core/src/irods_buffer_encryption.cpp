@@ -18,6 +18,20 @@
 
 namespace irods {
 
+    class evp_lifetime_mgr {
+        public:
+        evp_lifetime_mgr() {
+            OpenSSL_add_all_algorithms();
+
+        }
+
+        ~evp_lifetime_mgr() {
+            EVP_cleanup();
+        }
+
+    }; // class evp_lifetime_mgr
+    static evp_lifetime_mgr global_evp_lifetime_mgr_;
+
     std::string buffer_crypt::gen_hash(
         unsigned char* _buf,
         int            _sz ) {
@@ -42,6 +56,13 @@ namespace irods {
         salt_size_( 8 ),
         num_hash_rounds_( 16 ),
         algorithm_( "AES-256-CBC" ) {
+
+        std::transform( 
+            algorithm_.begin(), 
+            algorithm_.end(), 
+            algorithm_.begin(), 
+            ::tolower );
+
     }
 
     buffer_crypt::buffer_crypt(
@@ -53,6 +74,13 @@ namespace irods {
         salt_size_( _salt_sz ),
         num_hash_rounds_( _num_rnds ),
         algorithm_( _algo ) {
+
+        std::transform( 
+            algorithm_.begin(), 
+            algorithm_.end(), 
+            algorithm_.begin(), 
+            ::tolower );
+
         // =-=-=-=-=-=-=-
         // select some sane defaults
         if ( 0 == key_size_ ) {
@@ -68,12 +96,7 @@ namespace irods {
         }
 
         if ( algorithm_.empty() ) {
-            algorithm_ = "AES-256-CBC";
-
-        }
-
-        if ( !EVP_get_cipherbyname( algorithm_.c_str() ) ) {
-            algorithm_ = "AES-256-CBC";
+            algorithm_ = "aes-256-cbc";
 
         }
 
@@ -82,7 +105,6 @@ namespace irods {
 // =-=-=-=-=-=-=-
 // public - destructor
     buffer_crypt::~buffer_crypt() {
-
     } // dtor
 
 // =-=-=-=-=-=-=-
@@ -161,6 +183,7 @@ namespace irods {
         const array_t& _iv,
         const array_t& _in_buf,
         array_t&       _out_buf ) {
+
         // =-=-=-=-=-=-=-
         // create an encryption context
         EVP_CIPHER_CTX context;
@@ -169,7 +192,7 @@ namespace irods {
         const EVP_CIPHER* algo = EVP_get_cipherbyname( algorithm_.c_str() );
         if ( !algo ) {
             rodsLog(
-                LOG_DEBUG,
+                LOG_NOTICE,
                 "buffer_crypt::encrypt - algorithm not supported [%s]",
                 algorithm_.c_str() );
             // default to aes 256 cbc
@@ -261,8 +284,8 @@ namespace irods {
         const EVP_CIPHER* algo = EVP_get_cipherbyname( algorithm_.c_str() );
         if ( !algo ) {
             rodsLog(
-                LOG_DEBUG,
-                "buffer_crypt::encrypt - algorithm not supported [%s]",
+                LOG_NOTICE,
+                "buffer_crypt::decrypt - algorithm not supported [%s]",
                 algorithm_.c_str() );
             // default to aes 256 cbc
             algo = EVP_aes_256_cbc();
