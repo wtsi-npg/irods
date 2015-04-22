@@ -12,6 +12,7 @@ import shutil
 import random
 import subprocess
 
+import configuration
 from resource_suite import ResourceBase
 import lib
 
@@ -49,7 +50,7 @@ class ChunkyDevTest(ResourceBase):
         self.admin.assert_icommand("ilsresc -l", 'STDOUT', self.testresc)
         self.admin.assert_icommand("imiscsvrinfo", 'STDOUT', ["relVersion"])
         self.admin.assert_icommand("iuserinfo", 'STDOUT', "name: " + username)
-        self.admin.assert_icommand("ienv", 'STDOUT', "irods_zone")
+        self.admin.assert_icommand("ienv", 'STDOUT', "irods_zone_name")
         self.admin.assert_icommand("ipwd", 'STDOUT', "home")
         self.admin.assert_icommand("ihelp ils", 'STDOUT', "ils")
         self.admin.assert_icommand("ierror -14000", 'STDOUT', "SYS_API_INPUT_ERR")
@@ -735,6 +736,7 @@ class ChunkyDevTest(ResourceBase):
         if os.path.exists(myldir):
             shutil.rmtree(myldir)
 
+    @unittest.skipIf(configuration.USE_SSL, 'RBUDP does not support encryption')
     def test_large_files_with_RBUDP_from_devtest(self):
         # build expected variables with similar devtest names
         progname = __file__

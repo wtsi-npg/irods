@@ -422,16 +422,17 @@ class ResourceSuite(ResourceBase):
         output = commands.getstatusoutput('rm -rf ' + datadir)
         output = commands.getstatusoutput('rm ' + rf)
 
+    @unittest.skipIf(True, 'Enable once race conditions fixed, see #2634')
     def test_local_iput_interrupt_largefile(self):
         # local setup
         datafilename = 'bigfile'
-        file_size = int(4*pow(10, 8))
+        file_size = int(6*pow(10, 8))
         lib.make_file(datafilename, file_size)
         rf = 'bigrestartfile'
         iputcmd = 'iput --lfrestart {0} {1}'.format(rf, datafilename)
         if os.path.exists(rf):
             os.unlink(rf)
-        self.admin.interrupt_icommand(iputcmd, rf, 10)  # once restartfile reaches 10 bytes
+        self.admin.interrupt_icommand(iputcmd, rf, 300)  # once restartfile reaches 300 bytes
         time.sleep(2)  # wait for all interrupted threads to exit
         assert os.path.exists(rf), rf + " should now exist, but did not"
         output = commands.getstatusoutput('cat ' + rf)

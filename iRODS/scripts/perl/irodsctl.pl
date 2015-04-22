@@ -23,8 +23,9 @@ use File::Basename;
 use Cwd;
 use Cwd "abs_path";
 use Config;
+use IPC::Open3;
 
-$version{"irodsctl.pl"} = "Feb 2015";
+$version{"irodsctl.pl"} = "Apr 2015";
 
 
 $scriptfullpath = abs_path(__FILE__);
@@ -242,6 +243,14 @@ foreach $arg (@ARGV)
 
 
         # Commands
+        if ( $arg =~ /^-?-?(graceful_start)$/i )  
+        {
+                $numberCommands++;
+                printSubtitle( "Starting iRODS server...\n" );
+                $startVal = gracefulStartIrods( );
+                if ($startVal eq "0") {$doStartExitValue++;}
+                next;
+        }
         if ( $arg =~ /^-?-?(start)$/i )         # Start database and iRODS
         {
                 $numberCommands++;
@@ -266,6 +275,16 @@ foreach $arg (@ARGV)
                 startIrods( );
                 next;
         }
+        if ( $arg =~ /^-?-?(graceful_restart)$/i )
+        {
+                $numberCommands++;
+                printSubtitle( "Stopping iRODS server...\n" );
+                stopIrods( );   # OK to fail.  Server might not be started
+                printSubtitle( "Starting iRODS server...\n" );
+                gracefulStartIrods( );
+                next;
+        }
+
         if ( $arg =~ /^-?-?(stat(us)?)$/i )     # Status of iRODS and database
         {
                 $numberCommands++;
@@ -879,8 +898,77 @@ sub setupEnvironment
 
 }
 
+# loop until ils is happy, which tells us that
+# the server is live and well
+sub wait_for_server_to_start {
+    my $retry_count = 1000;
 
+    while( $retry_count > 0 ) {
+        my $output = `ils 2>&1`;
+        my $return_code = $? >> 8;
+        if( 0 == $return_code ) {
+            $retry_count = 0;
+        }
 
+        $retry_count = $retry_count - 1;
+
+        sleep( 1 );
+
+    } # while
+
+} # wait_for_server_to_start
+
+#
+# @brief        Preflight Run - Run single command, capture stdout and stderr, print accordingly
+#
+# @return       0 = failed
+#               1 = success
+#
+sub preflight_run
+{
+    my ( $cmd ) = @_;
+    my $status;
+    my $stdout;
+
+    $stdout = `$cmd 2>&1`;
+    $status = $?;
+    print "$stdout";
+    if ( $status != 0 ) { return 0; }
+    return 1;
+}
+
+#
+# @brief        Preflight Check - Validate JSON Configuration Schema Files
+#
+# @return       0 = failed
+#               1 = success
+#
+sub preflight_check
+{
+    # local variables
+    my $VALIDATE = "python $scripttoplevel/iRODS/scripts/python/validate_json.py";
+    my $SCHEMA_ROOT_URL = "https://schemas.irods.org/configuration/v2";
+    my $retval;
+    my $HOME_DIR = $ENV{'HOME'};
+
+    # check each required JSON configuration file
+    $retval = preflight_run("$VALIDATE $HOME_DIR/.irods/irods_environment.json $SCHEMA_ROOT_URL/service_account_environment.json");
+    if ( $retval == 0 ){ return 0; }
+    $retval = preflight_run("$VALIDATE $configDir/server_config.json $SCHEMA_ROOT_URL/server_config.json");
+    if ( $retval == 0 ){ return 0; }
+    $retval = preflight_run("$VALIDATE $configDir/hosts_config.json $SCHEMA_ROOT_URL/hosts_config.json");
+    if ( $retval == 0 ){ return 0; }
+    $retval = preflight_run("$VALIDATE $configDir/host_access_control_config.json $SCHEMA_ROOT_URL/host_access_control_config.json");
+    if ( $retval == 0 ){ return 0; }
+    # iCAT server
+    if ( ! -e $irodsServer )
+    {
+        $retval = preflight_run("$VALIDATE $configDir/database_config.json $SCHEMA_ROOT_URL/database_config.json");
+        if ( $retval == 0 ){ return 0; }
+    }
+    # success
+    return 1;
+}
 
 
 #
@@ -890,6 +978,105 @@ sub setupEnvironment
 #               1 = started
 #
 sub startIrods
+{
+        # Make sure the server is available
+        my $status;
+        if ( ! -e $irodsServer )
+        {
+                printError( "Configuration problem:\n" );
+                printError( "    The 'irodsServer' application could not be found.  Have the\n" );
+                printError( "    iRODS servers been compiled?\n" );
+                exit( 1 );
+        }
+        if ( ! -e $irodsLogDir )
+        {
+                printError( "Configuration problem:\n" );
+                printError( "    The server log directory, $irodsLogDir\n" );
+                printError( "    does not exist.  Please create it, make it writable, and retry.\n" );
+                exit( 1 );
+        }
+        if ( ! -w $irodsLogDir )
+        {
+                printError( "Configuration problem:\n" );
+                printError( "    The server log directory, $irodsLogDir\n" );
+                printError( "    is not writable.  Please chmod it and retry.\n" );
+                exit( 1 );
+        }
+        if ( 0 == preflight_check( ) )
+        {
+                printError( "Preflight Check problem:\n" );
+                printError( "   JSON Configuration Validation failed.\n" );
+                exit( 1 );
+        }
+
+        # Test for iRODS port in use
+        my $portTestLimit = 5;
+        my $waitSeconds = 1;
+        while ($waitSeconds < $portTestLimit){
+                my $porttest = `netstat -tlpen 2> /dev/null | grep ":$IRODS_PORT" | awk '{print \$9}'`;
+                chomp($porttest);
+                if ($porttest ne ""){
+                        print("($waitSeconds) Waiting for process bound to port $IRODS_PORT ... [$porttest]\n");
+                        sleep($waitSeconds);
+                        $waitSeconds = $waitSeconds * 2;
+                }
+                else{
+                        last;
+                }
+        }
+        if ($waitSeconds >= $portTestLimit){
+                printError("Port $IRODS_PORT In Use ... Not Starting iRODS Server\n");
+                exit( 1 );
+        }
+
+
+        # Prepare
+        my $startingDir = cwd( );
+        chdir( $serverBinDir );
+        umask( 077 );
+        # Start the server
+        my $syslogStat = `grep IRODS_SYSLOG $configDir/config.mk 2> /dev/null | grep -v \'#'`;
+        if ($syslogStat) {
+#           syslog enabled, need to start differently
+            my $status = system("$irodsServer&");
+        }
+        else {
+            my $output = `$irodsServer 2>&1`;
+            my $status = $?;
+        }
+        if ( $status )
+        {
+                printError( "iRODS server failed to start\n" );
+                printError( "    $output\n" );
+                return 0;
+        }
+
+
+        sleep( $iRODSStartStopDelay );
+
+
+        chdir( $startingDir );
+
+
+        # Check that it actually started
+        my %serverPids = getIrodsProcessIds( );
+        if ( (scalar keys %serverPids) == 0 )
+        {
+                printError( "iRODS server failed to start.\n" );
+                return 0;
+        }
+
+        return 1;
+}
+
+
+#
+# @brief        Start iRODS server
+#
+# @return       0 = failed
+#               1 = started
+#
+sub gracefulStartIrods
 {
         # Make sure the server is available
         my $status;
@@ -959,8 +1146,7 @@ sub startIrods
 
         chdir( $startingDir );
 
-        # Sleep a bit to give the server time to start and possibly exit
-        sleep( $iRODSStartStopDelay );
+        wait_for_server_to_start();
 
         # Check that it actually started
         my %serverPids = getIrodsProcessIds( );
@@ -972,7 +1158,6 @@ sub startIrods
 
         return 1;
 }
-
 
 
 
