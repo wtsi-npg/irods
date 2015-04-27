@@ -181,12 +181,23 @@ rsDataObjCreate( rsComm_t *rsComm, dataObjInp_t *dataObjInp ) {
             irods::error ret = irods::resolve_resource_hierarchy( irods::WRITE_OPERATION,
                                rsComm, dataObjInp, hier );
             if ( !ret.ok() ) {
-                std::stringstream msg;
-                msg << __FUNCTION__;
-                msg << " :: failed in irods::resolve_resource_hierarchy for [";
-                msg << dataObjInp->objPath << "]";
-                irods::log( PASSMSG( msg.str(), ret ) );
-                freeRodsObjStat( rodsObjStatOut );
+                if( HIERARCHY_ERROR == ret.code() ) {
+                    char* dst_resc_kw = getValByKey(&dataObjInp->condInput, DEST_RESC_NAME_KW );
+                    rodsLogAndErrorMsg(
+                        LOG_ERROR,
+                        &rsComm->rError,
+                        status,
+                        "Cannot overwrite replica of [%s] to resource [%s] as no prior replica exists on that resource",
+                        dataObjInp->condInput,
+                        dst_resc_kw );
+                } else {
+                    std::stringstream msg;
+                    msg << "failed in irods::resolve_resource_hierarchy for [";
+                    msg << dataObjInp->objPath << "]";
+                    irods::log( PASSMSG( msg.str(), ret ) );
+                    freeRodsObjStat( rodsObjStatOut );
+                }
+                
                 return ret.code();
             }
 
