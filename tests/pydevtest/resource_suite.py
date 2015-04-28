@@ -76,6 +76,12 @@ class ResourceSuite(ResourceBase):
     # iget
     ###################
 
+    def test_ibun_resource_failure_behavior(self):
+        lib.touch("file.tar")
+        self.user0.assert_icommand('iput file.tar ', 'EMPTY')
+        self.admin.assert_icommand('ibun -x -R ' + self.testresc + ' file.tar /tempZone/home/rods/doesntmatter','STDERR_SINGLELINE', 'REPLICA_NOT_IN_RESC' )
+        self.admin.assert_icommand('ibun -x -R notaResc file.tar /tempZone/home/rods/doesntmatter', 'STDERR_SINGLELINE', 'SYS_RESC_DOES_NOT_EXIST' )
+
     def test_local_iget(self):
         # local setup
         localfile = "local.txt"
@@ -104,7 +110,7 @@ class ResourceSuite(ResourceBase):
         # assertions
         self.admin.assert_icommand_fail("iget -z")  # run iget with bad option
 
-    def test_iget_with_dirty_replica(self):
+    def test_iget_with_stale_replica(self): # formerly known as 'dirty'
         # local setup
         filename = "original.txt"
         filepath = lib.create_local_testfile(filename)
