@@ -1,6 +1,6 @@
 
 #include "rsGlobalExtern.hpp"
-#include "rodsErrorTable.hpp"
+#include "rodsErrorTable.h"
 #include "miscServerFunct.hpp"
 #include "specificQuery.hpp"
 
@@ -11,7 +11,7 @@
 #include "irods_resource_backport.hpp"
 #include "irods_server_properties.hpp"
 
-#include <jansson.h>
+#include "jansson.h"
 
 
 

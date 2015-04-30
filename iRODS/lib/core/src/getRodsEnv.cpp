@@ -24,10 +24,10 @@
   the env file, either creating it or appending to it.
 */
 
-#include "rods.hpp"
-#include "rodsErrorTable.hpp"
-#include "getRodsEnv.hpp"
-#include "rodsLog.hpp"
+#include "rods.h"
+#include "rodsErrorTable.h"
+#include "getRodsEnv.h"
+#include "rodsLog.h"
 #include "irods_log.hpp"
 #include "irods_environment_properties.hpp"
 #include "irods_configuration_keywords.hpp"
@@ -106,8 +106,6 @@ extern "C" {
 
     int getRodsEnv( rodsEnv *rodsEnvArg ) {
         if ( !rodsEnvArg ) {
-            printf( "ERROR - getRodsEnv :: null rodsEnv\n" );
-            fflush( stdout );
             return SYS_INVALID_INPUT_PARAM;
         }
         _getRodsEnv( *rodsEnvArg );
@@ -199,8 +197,6 @@ extern "C" {
     int getRodsEnvFromFile(
         rodsEnv* _env ) {
         if ( !_env ) {
-            printf( "ERROR - getRodsEnv :: null rodsEnv\n" );
-            fflush( stdout );
             return SYS_INVALID_INPUT_PARAM;
         }
 
@@ -461,6 +457,12 @@ extern "C" {
             irods::CFG_IRODS_TRANS_BUFFER_SIZE_FOR_PARA_TRANS,
             _env->irodsTransBufferSizeForParaTrans );
 
+        capture_string_property(
+            msg_lvl,
+            props,
+            irods::CFG_IRODS_PLUGIN_HOME_KW,
+            _env->irodsPluginHome );
+
         return 0;
     }
 
@@ -571,8 +573,6 @@ extern "C" {
     getRodsEnvFromEnv(
         rodsEnv* _env ) {
         if ( !_env ) {
-            printf( "ERROR - getRodsEnvFromEnv :: null rodsEnv\n" );
-            fflush( stdout );
             return SYS_INVALID_INPUT_PARAM;
         }
 
@@ -745,6 +745,11 @@ extern "C" {
         capture_integer_env_var(
             env_var,
             _env->irodsTransBufferSizeForParaTrans );
+
+        env_var = irods::CFG_IRODS_PLUGIN_HOME_KW;
+        capture_string_env_var(
+            env_var,
+            _env->irodsPluginHome );
 
         return 0;
     }

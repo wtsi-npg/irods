@@ -10,6 +10,7 @@ CPUJOBS=""
 RELEASE="0"
 BUILDIRODS="1"
 PORTABLE="0"
+VERBOSE="0"
 COVERAGEBUILDDIR="/var/lib/irods"
 PREFLIGHT=""
 PREFLIGHTDOWNLOAD=""
@@ -23,15 +24,15 @@ Usage: $SCRIPTNAME docs
 Usage: $SCRIPTNAME clean
 
 Options:
--c      Build with coverage support (gcov)
--f      Fast build, skip dev, runtime, and icommands packages
--h      Show this help
--r      Build a release package (no debugging information, optimized)
--s      Skip compilation of iRODS source
--p      Portable option, ignores OS and builds a tar.gz
-
-Long Options:
---run-in-place    Build server for in-place execution (not recommended)
+-c, --coverage       Build with coverage support (gcov)
+-f, --fast           Fast build, skip dev, runtime, and icommands packages
+-h, --help           Show this help
+-j, --jobs NUM       Run NUM make jobs simultaneously (instead of using all cores)
+-p, --portable       Portable option, ignores OS and builds a tar.gz
+-r, --release        Build a release package (no debugging symbols, optimized)
+    --run-in-place   Build server for in-place execution (not recommended)
+-s, --skip           Skip compilation of iRODS source
+-v, --verbose        Show the actual compilation commands executed
 
 Examples:
 $SCRIPTNAME icat postgres
@@ -89,6 +90,7 @@ do
         --release) args="${args}-r ";;
         --skip) args="${args}-s ";;
         --portable) args="${args}-p ";;
+        --verbose) args="${args}-v ";;
         --run-in-place) args="${args}-z ";;
         # pass through anything else
         *) [[ "${arg:0:1}" == "-" ]] || delim="\""
@@ -98,12 +100,12 @@ done
 # reset the translated args
 eval set -- $args
 # now we can process with getopts
-while getopts ":chfj:rspz" opt; do
+while getopts ":chfj:rspvz" opt; do
     case $opt in
         c)
         COVERAGE="1"
         TARGET=$2
-        echo "-c detected -- Building iRODS with coverage support (gcov)"
+        echo "-c, --coverage detected -- Building iRODS with coverage support (gcov)"
         echo "${text_green}${text_bold}TARGET=[$TARGET]${text_reset}"
         if [ "$TARGET" == "icat" ] ; then
             echo "${text_green}${text_bold}TARGET is ICAT${text_reset}"
@@ -114,23 +116,27 @@ while getopts ":chfj:rspz" opt; do
         ;;
         f)
         FAST="1"
-        echo "-f detected -- Skipping dev, runtime, and icommands packages"
+        echo "-f, --fast detected -- Skipping dev, runtime, and icommands packages"
         ;;
         j)
         CPUJOBS="$OPTARG"
-        echo "-j detected -- Building with $CPUJOBS make jobs"
-        ;;
-        r)
-        RELEASE="1"
-        echo "-r detected -- Building a RELEASE package of iRODS"
-        ;;
-        s)
-        BUILDIRODS="0"
-        echo "-s detected -- Skipping iRODS compilation"
+        echo "-j, --jobs detected -- Building with $CPUJOBS make jobs"
         ;;
         p)
         PORTABLE="1"
-        echo "-p detected -- Building portable package"
+        echo "-p, --portable detected -- Building portable package"
+        ;;
+        r)
+        RELEASE="1"
+        echo "-r, --release detected -- Building a RELEASE package of iRODS"
+        ;;
+        s)
+        BUILDIRODS="0"
+        echo "-s, --skip detected -- Skipping iRODS compilation"
+        ;;
+        v)
+        VERBOSE="1"
+        echo "-v, --verbose detected -- Showing compilation commands"
         ;;
         z)
         RUNINPLACE="1"
@@ -219,7 +225,7 @@ EPMCMD="external/epm/epm"
 cd $BUILDDIR/iRODS
 echo "Build Directory set to [$BUILDDIR]"
 # read iRODS Version from JSON
-IRODSVERSION=`python -c "import json; d = json.loads(open('../VERSION.json.dist').read()); print d['irods_version']"`
+IRODSVERSION=`python -c "from __future__ import print_function; import json; d = json.loads(open('../VERSION.json.dist').read()); print(d['irods_version'])"`
 echo "IRODSVERSION=$IRODSVERSION" > ../VERSION.tmp # needed for Makefiles
 IRODSVERSIONINT=${IRODSVERSION//\./0}0
 echo "Detected iRODS Version to Build [$IRODSVERSION]"
@@ -276,7 +282,12 @@ detect_number_of_cpus_and_set_makejcmd() {
     else
         CPUCOUNT=$(( $DETECTEDCPUCOUNT + 3 ))
     fi
-    MAKEJCMD="make --no-print-directory -j $CPUCOUNT"
+    if [ "$VERBOSE" == "1" ] ; then
+        VERBOSITYOPTION="VERBOSE=1"
+    else
+        VERBOSITYOPTION="--no-print-directory"
+    fi
+    MAKEJCMD="make $VERBOSITYOPTION -j $CPUCOUNT"
 
     # print out CPU information
     echo "${text_cyan}${text_bold}-------------------------------------"
@@ -519,13 +530,8 @@ if [ "$1" == "clean" ] ; then
     rm -rf linux-3.*
     rm -rf macosx-10.*
     rm -f iRODS/server/config/scriptMonPerf.config
-    rm -f iRODS/lib/core/include/rodsVersion.hpp
-    rm -f iRODS/lib/core/include/irods_ms_home.hpp
-    rm -f iRODS/lib/core/include/irods_network_home.hpp
-    rm -f iRODS/lib/core/include/irods_auth_home.hpp
-    rm -f iRODS/lib/core/include/irods_api_home.hpp
-    rm -f iRODS/lib/core/include/irods_resources_home.hpp
-    rm -f iRODS/server/core/include/irods_database_home.hpp
+    rm -f iRODS/lib/core/include/rodsVersion.h
+    rm -f iRODS/server/core/include/irods_plugin_home_directory.hpp
     rm -f iRODS/lib/core/include/irods_home_directory.hpp
     # database plugin cleanup
     ./plugins/database/build.sh clean
@@ -1064,11 +1070,11 @@ mv $TMPFILE VERSION.json
 cd $BUILDDIR
 TEMPLATE_RODS_RELEASE_VERSION=`python packaging/get_irods_version.py`
 TEMPLATE_RODS_RELEASE_DATE=`date +"%b %Y"`
-sed -e "s,TEMPLATE_RODS_RELEASE_VERSION,$TEMPLATE_RODS_RELEASE_VERSION," ./iRODS/lib/core/include/rodsVersion.hpp.template > /tmp/rodsVersion.hpp
-sed -e "s,TEMPLATE_RODS_RELEASE_DATE,$TEMPLATE_RODS_RELEASE_DATE," /tmp/rodsVersion.hpp > /tmp/rodsVersion.hpp.2
-rsync -c /tmp/rodsVersion.hpp.2 ./iRODS/lib/core/include/rodsVersion.hpp
-rm -f /tmp/rodsVersion.hpp
-rm -f /tmp/rodsVersion.hpp.2
+sed -e "s,TEMPLATE_RODS_RELEASE_VERSION,$TEMPLATE_RODS_RELEASE_VERSION," ./iRODS/lib/core/include/rodsVersion.h.template > /tmp/rodsVersion.h
+sed -e "s,TEMPLATE_RODS_RELEASE_DATE,$TEMPLATE_RODS_RELEASE_DATE," /tmp/rodsVersion.h > /tmp/rodsVersion.h.2
+rsync -c /tmp/rodsVersion.h.2 ./iRODS/lib/core/include/rodsVersion.h
+rm -f /tmp/rodsVersion.h
+rm -f /tmp/rodsVersion.h.2
 
 cd $BUILDDIR/iRODS
 if [ $1 == "icat" ] ; then
@@ -1226,52 +1232,19 @@ if [ "$BUILDIRODS" == "1" ] ; then
         detected_irods_home=`./scripts/find_irods_home.sh`
     fi
     detected_irods_home=`dirname $detected_irods_home`
-    irods_msvc_home="$detected_irods_home/plugins/microservices/"
-    set_tmpfile
-    sed -e s,IRODSMSVCPATH,$irods_msvc_home, ./lib/core/include/irods_ms_home.hpp.src > $TMPFILE
-    rsync -c $TMPFILE ./lib/core/include/irods_ms_home.hpp
-    rm -f $TMPFILE
-    # =-=-=-=-=-=-=-
-    # modify the irods_network_home.hpp file with the proper path to the binary directory
-    irods_network_home="$detected_irods_home/plugins/network/"
-    set_tmpfile
-    sed -e s,IRODSNETWORKPATH,$irods_network_home, ./lib/core/include/irods_network_home.hpp.src > $TMPFILE
-    rsync -c $TMPFILE ./lib/core/include/irods_network_home.hpp
-    rm -f $TMPFILE
-    # =-=-=-=-=-=-=-
-    # modify the irods_auth_home.hpp file with the proper path to the binary directory
-    irods_auth_home="$detected_irods_home/plugins/auth/"
-    set_tmpfile
-    sed -e s,IRODSAUTHPATH,$irods_auth_home, ./lib/core/include/irods_auth_home.hpp.src > $TMPFILE
-    rsync -c $TMPFILE ./lib/core/include/irods_auth_home.hpp
-    rm -f $TMPFILE
-    # =-=-=-=-=-=-=-
-    # modify the irods_resources_home.hpp file with the proper path to the binary directory
-    irods_resources_home="$detected_irods_home/plugins/resources/"
-    set_tmpfile
-    sed -e s,IRODSRESOURCESPATH,$irods_resources_home, ./lib/core/include/irods_resources_home.hpp.src > $TMPFILE
-    rsync -c $TMPFILE ./lib/core/include/irods_resources_home.hpp
-    rm -f $TMPFILE
-    # =-=-=-=-=-=-=-
-    # modify the irods_database_home.hpp file with the proper path to the binary directory
-    irods_database_home="$detected_irods_home/plugins/database/"
-    set_tmpfile
-    sed -e s,IRODSDATABASEPATH,$irods_database_home, ./server/core/include/irods_database_home.hpp.src > $TMPFILE
-    rsync -c $TMPFILE ./server/core/include/irods_database_home.hpp
-    rm -f $TMPFILE
-    # =-=-=-=-=-=-=-
-    # modify the irods_api_home.hpp file with the proper path to the binary directory
-    irods_api_home="$detected_irods_home/plugins/api/"
-    set_tmpfile
-    sed -e s,IRODSAPIPATH,$irods_api_home, ./lib/core/include/irods_api_home.hpp.src > $TMPFILE
-    rsync -c $TMPFILE ./lib/core/include/irods_api_home.hpp
-    rm -f $TMPFILE
     # =-=-=-=-=-=-=-
     # modify the irods_home_directory.hpp file with the proper path to the home directory
     irods_home_directory="$detected_irods_home/"
     set_tmpfile
     sed -e s,IRODSHOMEDIRECTORY,$irods_home_directory, ./lib/core/include/irods_home_directory.hpp.src > $TMPFILE
     rsync -c $TMPFILE ./lib/core/include/irods_home_directory.hpp
+    rm -f $TMPFILE
+    # =-=-=-=-=-=-=-
+    # modify the irods_plugin_home.hpp file with the proper path to the pluginhome directory
+    irods_plugin_home_directory="$detected_irods_home/plugins/"
+    set_tmpfile
+    sed -e s,IRODSPLUGINHOMEPATH,$irods_plugin_home_directory, ./lib/core/include/irods_plugin_home_directory.hpp.src > $TMPFILE
+    rsync -c $TMPFILE ./lib/core/include/irods_plugin_home_directory.hpp
     rm -f $TMPFILE
 
     ###########################################
@@ -1303,11 +1276,14 @@ if [ "$BUILDIRODS" == "1" ] ; then
         # build designated database plugin
         echo ""
         echo "${text_green}${text_bold}Building [$DATABASE_PLUGIN_TYPE] database plugin...${text_reset}"
-        if [ "$RUNINPLACE" == "1" ] ; then
-            $BUILDDIR/plugins/database/build.sh --run-in-place $DATABASE_PLUGIN_TYPE
-        else
-            $BUILDDIR/plugins/database/build.sh $DATABASE_PLUGIN_TYPE
+        DB_BUILD_CMD="$BUILDDIR/plugins/database/build.sh"
+        if [ "$VERBOSE" == "1" ] ; then
+            DB_BUILD_CMD="$DB_BUILD_CMD --verbose"
         fi
+        if [ "$RUNINPLACE" == "1" ] ; then
+            DB_BUILD_CMD="$DB_BUILD_CMD --run-in-place"
+        fi
+        $DB_BUILD_CMD $DATABASE_PLUGIN_TYPE
     elif [ "$SERVER_TYPE" == "RESOURCE" ] ; then
         # build resource package
         $MAKEJCMD -C $BUILDDIR resource-package
@@ -1549,14 +1525,19 @@ elif [ "$DETECTEDOS" == "SuSE" ] ; then # SuSE
 elif [ "$DETECTEDOS" == "Ubuntu" -o "$DETECTEDOS" == "Debian" ] ; then  # Ubuntu
     echo "${text_green}${text_bold}Running EPM :: Generating $DETECTEDOS DEBs${text_reset}"
     epmvar="DEB$SERVER_TYPE"
+    if [ "$DETECTEDOS" == "Ubuntu" ] ; then
+        if [ "12" == `python -c 'import platform; print platform.linux_distribution()[1].split(".")[0]'` ] ; then
+            UBUNTU12=true
+        fi
+    fi
     if [ "$SERVER_TYPE" == "ICAT" ] ; then
-        $EPMCMD $EPMOPTS -a $arch -f deb irods-icat $epmvar=true ./packaging/irods.list
+        $EPMCMD $EPMOPTS -a $arch -f deb irods-icat $epmvar=true UBUNTU12=$UBUNTU12 ./packaging/irods.list
         if [ "$FAST" == "0" ] ; then
             $EPMCMD $EPMOPTS -a $arch -f deb irods-dev $epmvar=true ./packaging/irods-dev.list
             $EPMCMD $EPMOPTS -a $arch -f deb irods-runtime $epmvar=true ./packaging/irods-runtime.list
         fi
     elif [ "$SERVER_TYPE" == "RESOURCE" ] ; then
-      $EPMCMD $EPMOPTS -a $arch -f deb irods-resource $epmvar=true ./packaging/irods.list
+        $EPMCMD $EPMOPTS -a $arch -f deb irods-resource $epmvar=true UBUNTU12=$UBUNTU12 ./packaging/irods.list
     fi
     if [ "$FAST" == "0" ] && [ "$SERVER_TYPE" == "ICOMMANDS" -o "$RELEASE" == "1" ] ; then
         $EPMCMD $EPMOPTS -a $arch -f deb irods-icommands $epmvar=true ./packaging/irods-icommands.list

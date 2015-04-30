@@ -427,12 +427,16 @@ class IrodsSession(object):
         return self._local_session_dir
 
     @property
-    def session_collection(self):
-        return os.path.join('/', self.zone_name, 'home', self.username, self._session_id)
-
-    @property
     def home_collection(self):
         return os.path.join('/', self.zone_name, 'home', self.username)
+
+    @property
+    def session_collection(self):
+        return os.path.join(self.home_collection, self._session_id)
+
+    @property
+    def session_collection_trash(self):
+        return self.session_collection.replace('/home/', '/trash/home/', 1)
 
     def run_icommand(self, *args, **kwargs):
         self._prepare_run_icommand(args[0], kwargs)
@@ -464,7 +468,7 @@ class IrodsSession(object):
                            'iqstat', 'ichksum', 'itrim', 'iphymv', 'ibun',
                            'iphybun', 'ireg', 'imcoll', 'irsync', 'ixmsg',
                            'irule', 'iqdel', 'iticket', 'iapitest', 'iscan',
-                           'isysmeta', 'iadmin', 'ifsck',]
+                           'isysmeta', 'iadmin', 'ifsck', 'izonereport']
 
         if isinstance(arg, basestring):
             icommand = shlex.split(arg)[0]

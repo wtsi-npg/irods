@@ -1,6 +1,6 @@
-#include "rodsClient.hpp"
+#include "rodsClient.h"
 #include "reFuncDefs.hpp"
-#include "rods.hpp"
+#include "rods.h"
 #include "reGlobalsExtern.hpp"
 #include "rsGlobalExtern.hpp"
 #include "rcGlobalExtern.hpp"
@@ -105,6 +105,7 @@ extern "C" {
                                single_buff_sz_in_mb );
         if( !ret.ok() ) {
             irods::log( PASS( ret ) );
+            close( srcFd );
             return ret.code();
         }
         size_t single_buff_sz = single_buff_sz_in_mb * 1024 * 1024;

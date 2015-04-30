@@ -3,8 +3,8 @@
 #include "rodsDef.h"
 #include "msParam.hpp"
 #include "reGlobalsExtern.hpp"
-#include "rcConnect.hpp"
-#include "sockComm.hpp"
+#include "rcConnect.h"
+#include "sockComm.h"
 
 // =-=-=-=-=-=-=-
 #include "irods_network_plugin.hpp"
@@ -215,7 +215,7 @@ static SSL_CTX* ssl_init_context(
 
     ctx = SSL_CTX_new( SSLv23_method() );
 
-    SSL_CTX_set_options( ctx, SSL_OP_ALL | SSL_OP_NO_SSLv2 | SSL_OP_NO_SSLv3 | SSL_OP_NO_TLSv1 | SSL_OP_SINGLE_DH_USE );
+    SSL_CTX_set_options( ctx, SSL_OP_ALL | SSL_OP_NO_SSLv2 | SSL_OP_NO_SSLv3 | SSL_OP_SINGLE_DH_USE );
 
     /* load our keys and certificates if provided */
     if ( certfile ) {

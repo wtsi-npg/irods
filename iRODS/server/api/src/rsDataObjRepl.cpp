@@ -10,7 +10,7 @@
 #include "dataObjOpen.hpp"
 #include "dataObjPut.hpp"
 #include "dataObjGet.hpp"
-#include "rodsLog.hpp"
+#include "rodsLog.h"
 #include "objMetaOpr.hpp"
 #include "physPath.hpp"
 #include "specColl.hpp"
@@ -836,6 +836,7 @@ dataObjOpenForRepl(
                            single_buff_sz );
     if( !ret.ok() ) {
         irods::log( PASS( ret ) );
+        freeDataObjInfo( srcDataObjInfo );
         return ret.code();
     }
     single_buff_sz *= 1024 * 1024;

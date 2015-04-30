@@ -3,9 +3,9 @@
 */
 #include "irods_client_api_table.hpp"
 #include "irods_pack_table.hpp"
-#include "rodsClient.hpp"
-#include "parseCommandLine.hpp"
-#include "rodsPath.hpp"
+#include "rodsClient.h"
+#include "parseCommandLine.h"
+#include "rodsPath.h"
 #include "lsUtil.hpp"
 #include "irods_buffer_encryption.hpp"
 #include "zone_report.hpp"
@@ -18,7 +18,7 @@ void usage() {
         "Usage: izonereport",
         "izonereport queries the entire iRODS Zone for configuration information.",
         "This configuration information will be generated in the form of a JSON",
-        "document which will validate using schemas found at http://schemas.irods.org.",
+        "document which will validate using schemas found at https://schemas.irods.org.",
         " -h  this help",
         ""
     };

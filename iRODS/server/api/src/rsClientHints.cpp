@@ -1,13 +1,6 @@
-
 #include "rsGlobalExtern.hpp"
-#include "rodsErrorTable.hpp"
+#include "rodsErrorTable.h"
 
-#include "irods_ms_home.hpp"
-#include "irods_network_home.hpp"
-#include "irods_auth_home.hpp"
-#include "irods_resources_home.hpp"
-#include "irods_api_home.hpp"
-#include "irods_database_home.hpp"
 #include "irods_lookup_table.hpp"
 #include "irods_server_properties.hpp"
 #include "irods_log.hpp"
@@ -18,7 +11,7 @@
 #include "ies_client_hints.hpp"
 #include "readServerConfig.hpp"
 
-#include <jansson.h>
+#include "jansson.h"
 
 #include <fstream>
 #include <boost/algorithm/string.hpp>
@@ -126,7 +119,7 @@ int _rsClientHints(
     json_error_t j_err;
     json_t* client_hints = json_loads(
                                ( char* )ies_buf->buf,
-                               ies_buf->len, &j_err );
+                               JSON_REJECT_DUPLICATES, &j_err );
     freeBBuf( ies_buf );
     if ( !client_hints ) {
         rodsLog(
@@ -165,7 +158,3 @@ int _rsClientHints(
     return 0;
 
 } // _rsClientHints
-
-
-
-

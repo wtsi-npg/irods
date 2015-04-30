@@ -1,6 +1,5 @@
-
 #include "rsGlobalExtern.hpp"
-#include "rodsErrorTable.hpp"
+#include "rodsErrorTable.h"
 #include "miscServerFunct.hpp"
 
 #include "irods_log.hpp"
@@ -9,7 +8,7 @@
 #include "irods_resource_manager.hpp"
 #include "irods_resource_backport.hpp"
 
-#include <jansson.h>
+#include "jansson.h"
 
 
 
@@ -139,7 +138,7 @@ irods::error get_server_reports(
         json_error_t j_err;
         json_t* j_resc = json_loads(
                              tmp_str.data(),
-                             tmp_str.size(),
+                             JSON_REJECT_DUPLICATES,
                              &j_err );
 
         freeBBuf( bbuf );
@@ -180,7 +179,7 @@ int _rsZoneReport(
     }
 
     json_error_t j_err;
-    json_t* cat_svr = json_loads( ( char* )bbuf->buf, bbuf->len, &j_err );
+    json_t* cat_svr = json_loads( ( char* )bbuf->buf, JSON_REJECT_DUPLICATES, &j_err );
     freeBBuf( bbuf );
     if ( !cat_svr ) {
         rodsLog(
@@ -234,7 +233,7 @@ int _rsZoneReport(
         zone,
         "schema_version",
         json_string(
-            "http://schemas.irods.org/v1/zone_bundle.json" ) );
+            "https://schemas.irods.org/configuration/v2/zone_bundle.json" ) );
     json_object_set( zone, "zones", zone_arr );
 
     char* tmp_buf = json_dumps( zone, JSON_INDENT( 4 ) );
@@ -259,4 +258,3 @@ int _rsZoneReport(
 } // _rsZoneReport
 
 #endif // RODS_CAT
-

@@ -1,5 +1,5 @@
-#include "rodsClient.hpp"
-#include "rods.hpp"
+#include "rodsClient.h"
+#include "rods.h"
 #include "reGlobalsExtern.hpp"
 #include "rsGlobalExtern.hpp"
 #include "rcGlobalExtern.hpp"
@@ -153,6 +153,7 @@ extern "C" {
                                single_buff_sz );
         if( !ret.ok() ) {
             irods::log( PASS( ret ) );
+            close( destFd );
             return ret.code();
         }
         single_buff_sz *= 1024 * 1024;

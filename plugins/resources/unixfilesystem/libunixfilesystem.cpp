@@ -2,7 +2,7 @@
 // irods includes
 #include "msParam.hpp"
 #include "reGlobalsExtern.hpp"
-#include "rcConnect.hpp"
+#include "rcConnect.h"
 #include "readServerConfig.hpp"
 #include "miscServerFunct.hpp"
 #include "generalAdmin.hpp"
@@ -126,7 +126,9 @@ static irods::error unix_file_copy_plugin(
                                        irods::CFG_TRANS_BUFFER_SIZE_FOR_PARA_TRANS,
                                        trans_buff_size );
                 if( !ret.ok() ) {
-                    return PASS( ret ); 
+                    close( inFd );
+                    close( outFd );
+                    return PASS( ret );
                 }
                 trans_buff_size *= 1024 * 1024;
 

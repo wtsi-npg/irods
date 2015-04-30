@@ -8,11 +8,11 @@
 
 /* This is a high level type API call */
 
-#include "rods.hpp"
+#include "rods.h"
 #include "rcMisc.hpp"
-#include "procApiRequest.hpp"
-#include "apiNumber.hpp"
-#include "dataObjInpOut.hpp"
+#include "procApiRequest.h"
+#include "apiNumber.h"
+#include "dataObjInpOut.h"
 #include "fileOpen.hpp"
 
 /* definition for phyOpenFlag */
@@ -51,9 +51,6 @@ procDataObjOpenForWrite( rsComm_t *rsComm, dataObjInp_t *dataObjInp,
                          dataObjInfo_t **dataObjInfoHead,
                          dataObjInfo_t **compDataObjInfo );
 
-// JMC :: unused -- irods::error selectObjInfo( dataObjInfo_t * _dataObjInfoHead, keyValPair_t* _condInput, dataObjInfo_t** _rtn_dataObjInfo );
-
-// =-=-=-=-=-=-=-
 #else
 #define RS_DATA_OBJ_OPEN NULL
 #endif
