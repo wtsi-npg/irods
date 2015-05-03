@@ -1,9 +1,11 @@
 import commands
-import os
-import shlex
 import datetime
-import time
+import os
+import platform
+import shlex
 import sys
+import time
+
 if sys.version_info >= (2, 7):
     import unittest
 else:
@@ -25,23 +27,23 @@ class Test_Catalog(ResourceBase, unittest.TestCase):
     ###################
 
     def test_izonereport_and_validate(self):
+        jsonschema_installed = True
+        if lib.get_os_distribution() == 'Ubuntu' and lib.get_os_distribution_version_major() == '12':
+            jsonschema_installed = False
+
         # bad URL
         self.admin.assert_icommand("izonereport > out.txt", use_unsafe_shell=True)
-        rc, out, err = lib.run_command('python ../../iRODS/scripts/python/validate_json.py out.txt https://example.org/badurl')
-        print "izonereport stdout: "+out
-        print "izonereport stderr: "+err
-        assert "WARNING: Validation Failed" in err, err
-        assert "ValueError: No JSON object could be decoded" in err, err
-        assert rc == 0, rc
+        if jsonschema_installed:
+            lib.assert_command('python ../../iRODS/scripts/python/validate_json.py out.txt https://example.org/badurl', 'STDERR_MULTILINE', ['WARNING: Validation Failed', 'ValueError: No JSON object could be decoded'], desired_rc=0)
+        else:
+            lib.assert_command('python ../../iRODS/scripts/python/validate_json.py out.txt https://example.org/badurl', 'STDERR_MULTILINE', ['WARNING: Validation Failed', 'jsonschema not installed'], desired_rc=0)
 
         # good URL
         self.admin.assert_icommand("izonereport > out.txt", use_unsafe_shell=True)
-        rc, out, err = lib.run_command('python ../../iRODS/scripts/python/validate_json.py out.txt https://schemas.irods.org/configuration/v2/zone_bundle.json')
-        print "izonereport stdout: "+out
-        print "izonereport stderr: "+err
-        assert "Validating" in out, out
-        assert "... Success" in out, out
-        assert rc == 0, rc
+        if jsonschema_installed:
+            lib.assert_command('python ../../iRODS/scripts/python/validate_json.py out.txt https://schemas.irods.org/configuration/v2/zone_bundle.json', 'STDOUT_MULTILINE', ['Validating', '... Success'], desired_rc=0)
+        else:
+            lib.assert_command('python ../../iRODS/scripts/python/validate_json.py out.txt https://schemas.irods.org/configuration/v2/zone_bundle.json', 'STDERR_MULTILINE', ['WARNING: Validation Failed', 'jsonschema not installed'], desired_rc=0)
 
         # cleanup
         os.remove('out.txt')
@@ -220,8 +222,6 @@ class Test_Catalog(ResourceBase, unittest.TestCase):
         seconds_ahead = 60 * 60  # 1 hour
         self.admin.assert_icommand("isysmeta mod pydevtest_testfile.txt +1h", "EMPTY")
         check_relative_expiry(seconds_ahead)
-
-
 
 class Test_CatalogPermissions(ResourceBase, unittest.TestCase):
     def setUp(self):

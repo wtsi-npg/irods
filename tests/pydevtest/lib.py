@@ -7,6 +7,7 @@ import itertools
 import json
 import mmap
 import os
+import platform
 import psutil
 import re
 import shlex
@@ -191,6 +192,7 @@ def check_run_command_output(command_arg, stdout, stderr, check_type='EMPTY', ex
             if not re.search(regex_pattern, output):
                 print('Output not found\n')
                 return False
+        print('Output found\n')
         return True
     elif check_type in ['STDOUT_SINGLELINE', 'STDERR_SINGLELINE', 'STDOUT_MULTILINE', 'STDERR_MULTILINE']:
         lines = stdout.splitlines() if check_type in ['STDOUT_SINGLELINE', 'STDOUT_MULTILINE'] else stderr.splitlines()
@@ -227,10 +229,10 @@ def check_run_command_output(command_arg, stdout, stderr, check_type='EMPTY', ex
             return True
         print('Unexpected output on stdout\n')
         return False
-    assert False
+    assert False, check_type
 
 def extract_function_kwargs(func, kwargs):
-    args = func.func_code.co_varnames
+    args = func.func_code.co_varnames[:func.func_code.co_argcount]
     args_dict = {}
     for k, v in kwargs.items():
         if k in args:
@@ -245,7 +247,7 @@ def assert_command_fail(*args, **kwargs):
 
 def _assert_helper(command_arg, check_type='EMPTY', expected_results='', should_fail=False, **kwargs):
     run_command_arg_dict = extract_function_kwargs(run_command, kwargs)
-    _, stdout, stderr = run_command(command_arg, **run_command_arg_dict)
+    rc, stdout, stderr = run_command(command_arg, **run_command_arg_dict)
 
     fail_string = ' FAIL' if should_fail else ''
     if isinstance(command_arg, basestring):
@@ -255,6 +257,14 @@ def _assert_helper(command_arg, check_type='EMPTY', expected_results='', should_
 
     check_run_command_output_arg_dict = extract_function_kwargs(check_run_command_output, kwargs)
     result = should_fail != check_run_command_output(command_arg, stdout, stderr, check_type=check_type, expected_results=expected_results, **check_run_command_output_arg_dict)
+
+    desired_rc = kwargs.get('desired_rc', None)
+    if desired_rc is not None:
+        print('Checking return code: actual [{0}] desired [{1}]'.format(rc, desired_rc))
+        if desired_rc != rc:
+            print('RETURN CODE CHECK FAILED')
+            result = False
+
     if not result:
         print('FAILED TESTING ASSERTION\n\n')
     assert result
@@ -362,6 +372,12 @@ def rmgroup(group_name):
 def rmuser(username):
     with make_session_for_existing_admin() as admin_session:
         admin_session.assert_icommand(['iadmin', 'rmuser', username])
+
+def get_os_distribution():
+    return platform.linux_distribution()[0]
+
+def get_os_distribution_version_major():
+    return platform.linux_distribution()[1].split('.')[0]
 
 def make_sessions_mixin(rodsadmin_name_password_list, rodsuser_name_password_list):
     class SessionsMixin(object):
