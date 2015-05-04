@@ -6,9 +6,9 @@
 
 #include "rodsConnect.h"
 #include "rsGlobalExtern.hpp"
-#include "rcGlobalExtern.hpp"
+#include "rcGlobalExtern.h"
 #include "miscServerFunct.hpp"
-#include "getRemoteZoneResc.hpp"
+#include "getRemoteZoneResc.h"
 #include "irods_resource_backport.hpp"
 #include "rsLog.hpp"
 
@@ -1097,16 +1097,3 @@ getAndConnReHost( rsComm_t *rsComm, rodsServerHost_t **rodsServerHost ) {
     }
 }
 
-char *
-getConfigDir() {
-#ifndef windows_platform
-    char *myDir;
-
-    if ( ( myDir = ( char * ) getenv( "irodsConfigDir" ) ) != ( char * ) NULL ) {
-        return myDir;
-    }
-    return DEF_CONFIG_DIR;
-#else
-    return iRODSNtGetServerConfigPath();
-#endif
-}

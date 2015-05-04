@@ -8,10 +8,13 @@
 /* This is script-generated code.  */
 /* See dataObjPut.h for a description of this API call.*/
 
-#include "dataObjPut.hpp"
+#include "dataObjPut.h"
+#include "procApiRequest.h"
+#include "apiNumber.h"
 #include "rcPortalOpr.h"
-#include "oprComplete.hpp"
+#include "oprComplete.h"
 #include "sockComm.h"
+#include "rcMisc.h"
 
 // =-=-=-=-=-=-=-
 #include "irods_client_server_negotiation.hpp"

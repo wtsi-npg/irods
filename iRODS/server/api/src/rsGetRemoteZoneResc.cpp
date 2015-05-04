@@ -3,17 +3,17 @@
 /* rsGetRemoteZoneResc.c
  */
 
-#include "getRemoteZoneResc.hpp"
+#include "getRemoteZoneResc.h"
 #include "rodsLog.h"
 #include "objMetaOpr.hpp"
 #include "dataObjOpr.hpp"
 #include "physPath.hpp"
-#include "regDataObj.hpp"
-#include "rcGlobalExtern.hpp"
+#include "regDataObj.h"
+#include "rcGlobalExtern.h"
 #include "reGlobalsExtern.hpp"
 #include "reDefines.h"
-#include "dataObjCreate.hpp"
-#include "dataObjOpen.hpp"
+#include "dataObjCreate.h"
+#include "dataObjOpen.h"
 
 #include "irods_resource_redirect.hpp"
 #include "irods_resource_backport.hpp"

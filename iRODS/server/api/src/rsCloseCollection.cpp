@@ -3,10 +3,10 @@
 /* rsCloseCollection.c
  */
 
-#include "openCollection.hpp"
-#include "closeCollection.hpp"
+#include "openCollection.h"
+#include "closeCollection.h"
 #include "objMetaOpr.hpp"
-#include "rcGlobalExtern.hpp"
+#include "rcGlobalExtern.h"
 #include "rsGlobalExtern.hpp"
 
 int

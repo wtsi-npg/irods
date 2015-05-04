@@ -3,8 +3,8 @@
 /* This is script-generated code (for the most part).  */
 /* See chkNVPathPerm.h for a description of this API call.*/
 
-#include "chkNVPathPerm.hpp"
-#include "fileStat.hpp"
+#include "chkNVPathPerm.h"
+#include "fileStat.h"
 #include "miscServerFunct.hpp"
 #include "dataObjOpr.hpp"
 

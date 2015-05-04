@@ -3,8 +3,8 @@
 /* rsChkObjPermAndStat.c
  */
 
-#include "chkObjPermAndStat.hpp"
-#include "apiHeaderAll.hpp"
+#include "chkObjPermAndStat.h"
+#include "apiHeaderAll.h"
 #include "icatHighLevelRoutines.hpp"
 #include "icatHighLevelRoutines.hpp"
 int

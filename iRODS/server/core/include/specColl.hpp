@@ -12,8 +12,8 @@
 #include "rods.h"
 #include "objInfo.h"
 #include "dataObjInpOut.h"
-#include "ruleExecSubmit.hpp"
-#include "rcGlobalExtern.hpp"
+#include "ruleExecSubmit.h"
+#include "rcGlobalExtern.h"
 #include "rsGlobalExtern.hpp"
 #include "reIn2p3SysRule.hpp"
 

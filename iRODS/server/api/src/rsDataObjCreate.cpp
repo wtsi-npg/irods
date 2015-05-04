@@ -3,25 +3,25 @@
 /* This is script-generated code (for the most part).  */
 /* See dataObjCreate.h for a description of this API call.*/
 
-#include "dataObjCreate.hpp"
-#include "dataObjCreateAndStat.hpp"
-#include "dataObjOpen.hpp"
-#include "fileCreate.hpp"
-#include "subStructFileCreate.hpp"
+#include "dataObjCreate.h"
+#include "dataObjCreateAndStat.h"
+#include "dataObjOpen.h"
+#include "fileCreate.h"
+#include "subStructFileCreate.h"
 #include "rodsLog.h"
 #include "objMetaOpr.hpp"
 #include "resource.hpp"
 #include "specColl.hpp"
 #include "dataObjOpr.hpp"
 #include "physPath.hpp"
-#include "dataObjUnlink.hpp"
-#include "dataObjLock.hpp" // JMC - backport 4604
-#include "regDataObj.hpp"
-#include "rcGlobalExtern.hpp"
+#include "dataObjUnlink.h"
+#include "dataObjLock.h" // JMC - backport 4604
+#include "regDataObj.h"
+#include "rcGlobalExtern.h"
 #include "reGlobalsExtern.hpp"
 #include "reDefines.h"
-#include "getRemoteZoneResc.hpp"
-#include "getRescQuota.hpp"
+#include "getRemoteZoneResc.h"
+#include "getRescQuota.h"
 #include "icatHighLevelRoutines.hpp"
 #include "reFuncDefs.hpp"
 
@@ -213,9 +213,9 @@ rsDataObjCreate( rsComm_t *rsComm, dataObjInp_t *dataObjInp ) {
                     msg << "failed in irods::resolve_resource_hierarchy for [";
                     msg << dataObjInp->objPath << "]";
                     irods::log( PASSMSG( msg.str(), ret ) );
-                    freeRodsObjStat( rodsObjStatOut );
                 }
-                
+                freeRodsObjStat( rodsObjStatOut );
+
                 return ret.code();
             }
 

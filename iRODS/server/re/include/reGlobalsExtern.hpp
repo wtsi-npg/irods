@@ -21,16 +21,16 @@ extern void myfree(char* file, int line, void *x);
 
 #include "rodsUser.h"
 #include "rods.h"
-#include "rcGlobalExtern.hpp"
+#include "rcGlobalExtern.h"
 #include "objInfo.h"
-#include "fileOpen.hpp"
+#include "fileOpen.h"
 #include "regExpMatch.hpp"
 #include "reDefines.h"
-#include "ruleExecSubmit.hpp"
-#include "ruleExecDel.hpp"
+#include "ruleExecSubmit.h"
+#include "ruleExecDel.h"
 #include "dataObjInpOut.h"
 #include "msParam.h"
-#include "modAccessControl.hpp"
+#include "modAccessControl.h"
 
 /***** IMPORTANT    IMPORTANT    IMPORTANT    *****/
 /***** If you are changing the RuleExecInfo   *****/

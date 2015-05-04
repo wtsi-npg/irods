@@ -3,16 +3,17 @@
 /* This is script-generated code (for the most part).  */
 /* See l3FileGetSingleBuf.h for a description of this API call.*/
 
-#include "l3FileGetSingleBuf.hpp"
+#include "l3FileGetSingleBuf.h"
+#include "dataObjGet.h"
 #include "rodsLog.h"
-#include "dataGet.hpp"
-#include "fileGet.hpp"
-#include "dataObjOpen.hpp"
+#include "dataGet.h"
+#include "fileGet.h"
+#include "dataObjOpen.h"
 #include "rsGlobalExtern.hpp"
-#include "rcGlobalExtern.hpp"
+#include "rcGlobalExtern.h"
 #include "rsApiHandler.hpp"
 #include "objMetaOpr.hpp"
-#include "getRemoteZoneResc.hpp"
+#include "getRemoteZoneResc.h"
 
 int
 rsL3FileGetSingleBuf( rsComm_t *rsComm, int *l1descInx,

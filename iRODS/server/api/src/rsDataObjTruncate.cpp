@@ -3,22 +3,22 @@
 /* This is script-generated code (for the most part).  */
 /* See dataObjTruncate.h for a description of this API call.*/
 
-#include "dataObjTruncate.hpp"
+#include "dataObjTruncate.h"
 #include "rodsLog.h"
-#include "icatDefines.hpp"
-#include "fileTruncate.hpp"
-#include "unregDataObj.hpp"
+#include "icatDefines.h"
+#include "fileTruncate.h"
+#include "unregDataObj.h"
 #include "objMetaOpr.hpp"
 #include "dataObjOpr.hpp"
 #include "rsGlobalExtern.hpp"
-#include "rcGlobalExtern.hpp"
+#include "rcGlobalExtern.h"
 #include "reGlobalsExtern.hpp"
 #include "reDefines.h"
-#include "rmColl.hpp"
-#include "modDataObjMeta.hpp"
-#include "subStructFileTruncate.hpp"
-#include "getRemoteZoneResc.hpp"
-#include "phyBundleColl.hpp"
+#include "rmColl.h"
+#include "modDataObjMeta.h"
+#include "subStructFileTruncate.h"
+#include "getRemoteZoneResc.h"
+#include "phyBundleColl.h"
 
 // =-=-=-=-=-=-=-
 #include "irods_resource_backport.hpp"

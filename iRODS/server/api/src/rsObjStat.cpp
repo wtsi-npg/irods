@@ -5,15 +5,15 @@
 
 #include "objStat.h"
 #include "rcMisc.h"
-#include "genQuery.hpp"
-#include "querySpecColl.hpp"
+#include "genQuery.h"
+#include "querySpecColl.h"
 #include "objMetaOpr.hpp"
 #include "collection.hpp"
 #include "specColl.hpp"
 #include "resource.hpp"
-#include "rcGlobalExtern.hpp"
+#include "rcGlobalExtern.h"
 #include "rsGlobalExtern.hpp"
-#include "dataObjClose.hpp"
+#include "dataObjClose.h"
 
 int
 rsObjStat(

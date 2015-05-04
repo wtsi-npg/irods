@@ -1,18 +1,19 @@
 /*** Copyright (c), The Regents of the University of California            ***
  *** For more information please refer to files in the COPYRIGHT directory ***/
 
-#include "dataObjPhymv.hpp"
+#include "dataObjPhymv.h"
 #include "reFuncDefs.hpp"
-#include "dataObjRepl.hpp"
+#include "dataObjRepl.h"
 #include "dataObjOpr.hpp"
 #include "rodsLog.h"
 #include "objMetaOpr.hpp"
 #include "specColl.hpp"
 #include "reGlobalsExtern.hpp"
 #include "reDefines.h"
+#include "icatDefines.h"
 #include "reSysDataObjOpr.hpp"
-#include "dataObjCreate.hpp"
-#include "getRemoteZoneResc.hpp"
+#include "dataObjCreate.h"
+#include "getRemoteZoneResc.h"
 
 // =-=-=-=-=-=-=-
 #include "irods_resource_redirect.hpp"

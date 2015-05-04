@@ -4,10 +4,10 @@
 /* See phyPathReg.h for a description of this API call.*/
 
 #include "reFuncDefs.hpp"
-#include "fileStat.hpp"
-#include "phyPathReg.hpp"
+#include "fileStat.h"
+#include "phyPathReg.h"
 #include "rodsLog.h"
-#include "icatDefines.hpp"
+#include "icatDefines.h"
 #include "objMetaOpr.hpp"
 #include "dataObjOpr.hpp"
 #include "collection.hpp"
@@ -15,10 +15,10 @@
 #include "resource.hpp"
 #include "physPath.hpp"
 #include "rsGlobalExtern.hpp"
-#include "rcGlobalExtern.hpp"
+#include "rcGlobalExtern.h"
 #include "reGlobalsExtern.hpp"
 #include "miscServerFunct.hpp"
-#include "apiHeaderAll.hpp"
+#include "apiHeaderAll.h"
 
 // =-=-=-=-=-=-=-
 #include "irods_resource_backport.hpp"

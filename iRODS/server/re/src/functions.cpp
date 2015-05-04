@@ -7,7 +7,7 @@
 #include "cache.hpp"
 #include "configuration.hpp"
 #ifndef DEBUG
-#include "apiHeaderAll.hpp"
+#include "apiHeaderAll.h"
 #include "rsApiHandler.hpp"
 #include "dataObjOpr.hpp"
 #else
@@ -20,7 +20,7 @@ getDataObjInfoIncSpecColl( rsComm_t *rsComm, dataObjInp_t *dataObjInp,
 #include <boost/regex.h>
 
 #ifndef DEBUG
-#include "execMyRule.hpp"
+#include "execMyRule.h"
 #include "msParam.h"
 #include "reFuncDefs.hpp"
 #include "stringOpr.h"

@@ -5,13 +5,13 @@
  */
 
 /* script generated code */
-#include "procStat.hpp"
+#include "procStat.h"
 #include "objMetaOpr.hpp"
 #include "resource.hpp"
 #include "miscServerFunct.hpp"
 #include "rodsLog.h"
 #include "rsGlobalExtern.hpp"
-#include "rcGlobalExtern.hpp"
+#include "rcGlobalExtern.h"
 #include "procLog.h"
 
 // =-=-=-=-=-=-=-

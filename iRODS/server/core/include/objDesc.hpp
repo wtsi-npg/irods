@@ -12,11 +12,11 @@
 #include "rods.h"
 #include "objInfo.h"
 #include "dataObjInpOut.h"
-#include "fileRename.hpp"
+#include "fileRename.h"
 #include "miscUtil.h"
-#include "structFileSync.hpp"
-#include "structFileExtAndReg.hpp"
-#include "dataObjOpenAndStat.hpp"
+#include "structFileSync.h"
+#include "structFileExtAndReg.h"
+#include "dataObjOpenAndStat.h"
 
 #include "boost/any.hpp"
 

@@ -6,13 +6,14 @@
 
 // =-=-=-=-=-=-=-
 // irods includes
-#include "getRescQuota.hpp"
+#include "getRescQuota.h"
 #include "irods_children_parser.hpp"
 #include "irods_hierarchy_parser.hpp"
 #include "rsGlobalExtern.hpp"
-#include "generalAdmin.hpp"
-#include "phyBundleColl.hpp"
+#include "generalAdmin.h"
+#include "phyBundleColl.h"
 #include "miscServerFunct.hpp"
+#include "genQuery.h"
 
 // =-=-=-=-=-=-=-
 // stl includes

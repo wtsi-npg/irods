@@ -3,17 +3,17 @@
 /* This is script-generated code (for the most part).  */
 /* See syncMountedColl.h for a description of this API call.*/
 
-#include "syncMountedColl.hpp"
+#include "syncMountedColl.h"
 #include "rodsLog.h"
-#include "icatDefines.hpp"
+#include "icatDefines.h"
 #include "objMetaOpr.hpp"
 #include "collection.hpp"
 #include "resource.hpp"
 #include "rsGlobalExtern.hpp"
-#include "rcGlobalExtern.hpp"
+#include "rcGlobalExtern.h"
 #include "reGlobalsExtern.hpp"
 #include "miscServerFunct.hpp"
-#include "apiHeaderAll.hpp"
+#include "apiHeaderAll.h"
 
 // =-=-=-=-=-=-=-
 #include "irods_resource_backport.hpp"

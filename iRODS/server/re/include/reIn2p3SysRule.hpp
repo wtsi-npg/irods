@@ -9,16 +9,16 @@
 #include "reDataObjOpr.hpp"
 #include "rods.h"
 #include "rsGlobalExtern.hpp"   /* server global */
-#include "rcGlobalExtern.hpp"   /* client global */
+#include "rcGlobalExtern.h"   /* client global */
 #include "reGlobalsExtern.hpp"
 #include "rsLog.hpp"
 #include "rodsLog.h"
 #include "sockComm.h"
 #include "getRodsEnv.h"
 #include "rcConnect.h"
-#include "generalRowInsert.hpp"
-#include "generalRowPurge.hpp"
-#include "generalAdmin.hpp"
+#include "generalRowInsert.h"
+#include "generalRowPurge.h"
+#include "generalAdmin.h"
 
 #define NFIELDS 4 /* number of fields in HostControlAccess file: 
 <user> <group> <IP address> <subnet mask> */

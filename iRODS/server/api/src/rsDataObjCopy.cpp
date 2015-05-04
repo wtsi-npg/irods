@@ -3,18 +3,19 @@
 /* This is script-generated code (for the most part).  */
 /* See dataObjCopy.h for a description of this API call.*/
 
-#include "dataObjCopy.hpp"
+#include "dataObjCopy.h"
 #include "rodsLog.h"
 #include "objMetaOpr.hpp"
 #include "collection.hpp"
 #include "specColl.hpp"
-#include "dataObjOpen.hpp"
-#include "dataObjCreate.hpp"
-#include "dataObjRepl.hpp"
-#include "regDataObj.hpp"
+#include "dataObjOpen.h"
+#include "dataObjClose.h"
+#include "dataObjCreate.h"
+#include "dataObjRepl.h"
+#include "regDataObj.h"
 #include "rsGlobalExtern.hpp"
-#include "rcGlobalExtern.hpp"
-#include "getRemoteZoneResc.hpp"
+#include "rcGlobalExtern.h"
+#include "getRemoteZoneResc.h"
 
 // =-=-=-=-=-=-=-
 #include "irods_resource_redirect.hpp"

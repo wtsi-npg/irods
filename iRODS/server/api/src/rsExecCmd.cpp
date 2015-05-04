@@ -12,10 +12,12 @@
 #include "execCmd.h"
 #include "objMetaOpr.hpp"
 #include "dataObjOpr.hpp"
+#include "fileClose.h"
 #include "miscServerFunct.hpp"
 #include "rodsLog.h"
+#include "icatDefines.h"
 #include "rsGlobalExtern.hpp"
-#include "rcGlobalExtern.hpp"
+#include "rcGlobalExtern.h"
 
 #include "irods_resource_backport.hpp"
 #include "irods_resource_redirect.hpp"

@@ -8,8 +8,8 @@
 /* Written by Jean-Yves Nief of CCIN2P3 and copyright assigned to Data Intensive Cyberinfrastructure Foundation */
 
 #include "reIn2p3SysRule.hpp"
-#include "genQuery.hpp"
-#include "phyBundleColl.hpp"
+#include "genQuery.h"
+#include "phyBundleColl.h"
 #ifndef windows_platform
 #include <sys/socket.h>
 #include <pthread.h>

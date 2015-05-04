@@ -3,7 +3,7 @@
 /* rsPhyBundleColl.c. See phyBundleColl.h for a description of
  * this API call.*/
 
-#include "phyBundleColl.hpp"
+#include "phyBundleColl.h"
 #include "objMetaOpr.hpp"
 #include "resource.hpp"
 #include "collection.hpp"
@@ -11,16 +11,17 @@
 #include "physPath.hpp"
 #include "dataObjOpr.hpp"
 #include "miscServerFunct.hpp"
-#include "openCollection.hpp"
-#include "readCollection.hpp"
-#include "closeCollection.hpp"
-#include "dataObjRepl.hpp"
-#include "dataObjUnlink.hpp"
-#include "dataObjCreate.hpp"
-#include "syncMountedColl.hpp"
-#include "regReplica.hpp"
-#include "unbunAndRegPhyBunfile.hpp"
-#include "fileChksum.hpp"
+#include "openCollection.h"
+#include "readCollection.h"
+#include "closeCollection.h"
+#include "dataObjRepl.h"
+#include "dataObjUnlink.h"
+#include "dataObjCreate.h"
+#include "dataObjClose.h"
+#include "syncMountedColl.h"
+#include "regReplica.h"
+#include "unbunAndRegPhyBunfile.h"
+#include "fileChksum.h"
 #include "irods_stacktrace.hpp"
 
 // =-=-=-=-=-=-=-

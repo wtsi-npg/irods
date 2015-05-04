@@ -4,12 +4,13 @@
 /* See dataObjRepl.h for a description of this API call.*/
 
 #include "reFuncDefs.hpp"
-#include "dataObjRepl.hpp"
+#include "dataObjRepl.h"
 #include "dataObjOpr.hpp"
-#include "dataObjCreate.hpp"
-#include "dataObjOpen.hpp"
-#include "dataObjPut.hpp"
-#include "dataObjGet.hpp"
+#include "dataObjCreate.h"
+#include "dataObjOpen.h"
+#include "dataObjClose.h"
+#include "dataObjPut.h"
+#include "dataObjGet.h"
 #include "rodsLog.h"
 #include "objMetaOpr.hpp"
 #include "physPath.hpp"
@@ -17,15 +18,16 @@
 #include "resource.hpp"
 #include "reGlobalsExtern.hpp"
 #include "reDefines.h"
+#include "icatDefines.h"
 #include "reSysDataObjOpr.hpp"
-#include "getRemoteZoneResc.hpp"
-#include "l3FileGetSingleBuf.hpp"
-#include "l3FilePutSingleBuf.hpp"
-#include "fileSyncToArch.hpp"
-#include "fileStageToCache.hpp"
-#include "unbunAndRegPhyBunfile.hpp"
-#include "dataObjTrim.hpp" // JMC - backport 4550
-#include "dataObjLock.hpp" // JMC - backport 4609
+#include "getRemoteZoneResc.h"
+#include "l3FileGetSingleBuf.h"
+#include "l3FilePutSingleBuf.h"
+#include "fileSyncToArch.h"
+#include "fileStageToCache.h"
+#include "unbunAndRegPhyBunfile.h"
+#include "dataObjTrim.h" // JMC - backport 4550
+#include "dataObjLock.h" // JMC - backport 4609
 #include "miscServerFunct.hpp"
 
 // =-=-=-=-=-=-=-

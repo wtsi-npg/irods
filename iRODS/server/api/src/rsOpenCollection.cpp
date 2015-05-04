@@ -5,10 +5,10 @@
  */
 
 
-#include "openCollection.hpp"
-#include "closeCollection.hpp"
+#include "openCollection.h"
+#include "closeCollection.h"
 #include "rsGlobalExtern.hpp"
-#include "rcGlobalExtern.hpp"
+#include "rcGlobalExtern.h"
 
 int
 rsOpenCollection( rsComm_t *rsComm, collInp_t *openCollInp ) {

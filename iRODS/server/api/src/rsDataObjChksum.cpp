@@ -1,13 +1,13 @@
 #include "reGlobalsExtern.hpp"
-#include "dataObjChksum.hpp"
+#include "dataObjChksum.h"
 #include "objMetaOpr.hpp"
 #include "resource.hpp"
 #include "specColl.hpp"
 #include "dataObjOpr.hpp"
 #include "physPath.hpp"
 #include "rsApiHandler.hpp"
-#include "modDataObjMeta.hpp"
-#include "getRemoteZoneResc.hpp"
+#include "modDataObjMeta.h"
+#include "getRemoteZoneResc.h"
 
 // =-=-=-=-=-=-=-
 #include "irods_resource_backport.hpp"

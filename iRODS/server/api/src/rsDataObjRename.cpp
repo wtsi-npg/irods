@@ -2,7 +2,7 @@
  *** For more information please refer to files in the COPYRIGHT directory ***/
 /* rsDataObjRename.c - rename a data object.
  */
-#include "dataObjRename.hpp"
+#include "dataObjRename.h"
 #include "reFuncDefs.hpp"
 #include "objMetaOpr.hpp"
 #include "dataObjOpr.hpp"
@@ -10,15 +10,16 @@
 #include "resource.hpp"
 #include "specColl.hpp"
 #include "physPath.hpp"
-#include "subStructFileRename.hpp"
+#include "subStructFileRename.h"
 #include "icatHighLevelRoutines.hpp"
-#include "dataObjUnlink.hpp"
-#include "phyBundleColl.hpp"
-#include "regDataObj.hpp"
-#include "fileOpendir.hpp"
-#include "fileReaddir.hpp"
-#include "fileClosedir.hpp"
-#include "rmColl.hpp"
+#include "dataObjUnlink.h"
+#include "dataObjClose.h"
+#include "phyBundleColl.h"
+#include "regDataObj.h"
+#include "fileOpendir.h"
+#include "fileReaddir.h"
+#include "fileClosedir.h"
+#include "rmColl.h"
 
 // =-=-=-=-=-=-=-
 #include "irods_resource_backport.hpp"

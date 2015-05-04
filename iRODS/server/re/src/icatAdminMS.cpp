@@ -8,7 +8,8 @@
 #include "reGlobalsExtern.hpp"
 #include "reFuncDefs.hpp"
 #include "icatHighLevelRoutines.hpp"
-#include "generalAdmin.hpp"
+#include "rcMisc.h"
+#include "generalAdmin.h"
 #include "irods_server_properties.hpp"
 
 

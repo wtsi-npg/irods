@@ -5,9 +5,9 @@
  */
 
 /* script generated code */
-#include "fileRead.hpp"
-#include "fileClose.hpp"
-#include "streamRead.hpp"
+#include "fileRead.h"
+#include "fileClose.h"
+#include "streamRead.h"
 #include "miscServerFunct.hpp"
 #include "rsGlobalExtern.hpp"
 

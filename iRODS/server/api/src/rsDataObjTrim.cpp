@@ -2,16 +2,17 @@
  *** For more information please refer to files in the COPYRIGHT directory ***/
 /* See dataObjTrim.h for a description of this API call.*/
 
-#include "dataObjTrim.hpp"
-#include "dataObjUnlink.hpp"
+#include "dataObjTrim.h"
+#include "dataObjUnlink.h"
 #include "dataObjOpr.hpp"
 #include "rodsLog.h"
 #include "objMetaOpr.hpp"
 #include "specColl.hpp"
 #include "reGlobalsExtern.hpp"
 #include "reDefines.h"
+#include "icatDefines.h"
 #include "reSysDataObjOpr.hpp"
-#include "getRemoteZoneResc.hpp"
+#include "getRemoteZoneResc.h"
 
 // =-=-=-=-=-=-=-
 #include "irods_resource_redirect.hpp"

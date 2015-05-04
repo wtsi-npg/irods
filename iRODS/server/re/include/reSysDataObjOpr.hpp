@@ -11,8 +11,8 @@
 
 #include "rods.h"
 #include "objMetaOpr.hpp"
-#include "dataObjRepl.hpp"
-#include "modDataObjMeta.hpp"
+#include "dataObjRepl.h"
+#include "modDataObjMeta.h"
 #include "reGlobalsExtern.hpp"
 #include "rsGlobalExtern.hpp"
 

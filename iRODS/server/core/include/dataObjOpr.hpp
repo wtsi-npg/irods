@@ -1,7 +1,7 @@
 /*** Copyright (c), The Regents of the University of California            ***
  *** For more information please refer to files in the COPYRIGHT directory ***/
 
-/* dataObjOpr.h - header file for dataObjOpr.c
+/* dataObjOpr.hpp - header file for dataObjOpr.c
  */
 
 
@@ -12,8 +12,8 @@
 #include "rods.h"
 #include "objInfo.h"
 #include "dataObjInpOut.h"
-#include "ruleExecSubmit.hpp"
-#include "rcGlobalExtern.hpp"
+#include "ruleExecSubmit.h"
+#include "rcGlobalExtern.h"
 #include "rsGlobalExtern.hpp"
 #include "reIn2p3SysRule.hpp"
 

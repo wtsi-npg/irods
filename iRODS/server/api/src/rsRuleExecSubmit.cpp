@@ -1,6 +1,10 @@
 #include "rodsConnect.h"
-#include "ruleExecSubmit.hpp"
+#include "ruleExecSubmit.h"
 #include "icatHighLevelRoutines.hpp"
+#include "rcMisc.h"
+
+#include "irods_log.hpp"
+#include "irods_get_full_path_for_config_file.hpp"
 
 int
 rsRuleExecSubmit( rsComm_t *rsComm, ruleExecSubmitInp_t *ruleExecSubmitInp,
@@ -134,9 +138,23 @@ getReiFilePath( char *reiFilePath, char *userName ) {
         myUserName = userName;
     }
 
-    snprintf( reiFilePath, MAX_NAME_LEN,
-              "%-s/%-s/%-s.%-s.%-d", getConfigDir(), PACKED_REI_DIR,
-              REI_FILE_NAME, myUserName, ( uint ) random() );
+    std::string rei_dir;
+    irods::error ret = irods::get_full_path_for_config_file(
+                           REI_FILE_NAME,
+                           rei_dir );
+    if( !ret.ok() ) {
+        irods::log( PASS( ret ) );
+        return ret.code();
+    }
+
+    snprintf( 
+        reiFilePath, 
+        MAX_NAME_LEN,
+        "%-s/%-s.%-s.%-d", 
+        rei_dir.c_str(), 
+        REI_FILE_NAME, 
+        myUserName, 
+        ( uint ) random() );
 
     return 0;
 }

@@ -3,21 +3,21 @@
 /* This is script-generated code (for the most part).  */
 /* See getHostForGet.h for a description of this API call.*/
 
-#include "getHostForGet.hpp"
-#include "getHostForPut.hpp"
+#include "getHostForGet.h"
+#include "getHostForPut.h"
 #include "rodsLog.h"
 #include "rsGlobalExtern.hpp"
-#include "rcGlobalExtern.hpp"
-#include "getRemoteZoneResc.hpp"
-#include "dataObjCreate.hpp"
+#include "rcGlobalExtern.h"
+#include "getRemoteZoneResc.h"
+#include "dataObjCreate.h"
 #include "objMetaOpr.hpp"
 #include "resource.hpp"
 #include "collection.hpp"
 #include "specColl.hpp"
 #include "miscServerFunct.hpp"
-#include "openCollection.hpp"
-#include "readCollection.hpp"
-#include "closeCollection.hpp"
+#include "openCollection.h"
+#include "readCollection.h"
+#include "closeCollection.h"
 #include "dataObjOpr.hpp"
 
 // =-=-=-=-=-=-=-

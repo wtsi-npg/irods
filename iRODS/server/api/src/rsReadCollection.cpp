@@ -3,10 +3,10 @@
 /* rsReadCollection.c
  */
 
-#include "openCollection.hpp"
-#include "readCollection.hpp"
+#include "openCollection.h"
+#include "readCollection.h"
 #include "objMetaOpr.hpp"
-#include "rcGlobalExtern.hpp"
+#include "rcGlobalExtern.h"
 #include "rsGlobalExtern.hpp"
 
 int

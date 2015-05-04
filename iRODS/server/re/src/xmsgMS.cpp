@@ -8,9 +8,9 @@
 #include "reGlobalsExtern.hpp"
 #include "icatHighLevelRoutines.hpp"
 #include "rodsXmsg.h"
-#include "getXmsgTicket.hpp"
-#include "sendXmsg.hpp"
-#include "rcvXmsg.hpp"
+#include "getXmsgTicket.h"
+#include "sendXmsg.h"
+#include "rcvXmsg.h"
 
 #if defined(_LP64) || defined(__LP64__)
 #define CAST_PTR_INT (long int)

@@ -19,11 +19,11 @@
 
 #include "rods.h"
 #include "rcConnect.h"
-#include "fileOpen.hpp"
+#include "fileOpen.h"
 #include "dataObjInpOut.h"
-#include "dataCopy.hpp"
+#include "dataCopy.h"
 
-#include "structFileSync.hpp" /* JMC */
+#include "structFileSync.h" /* JMC */
 
 #define MAX_RECON_ERROR_CNT	10
 
