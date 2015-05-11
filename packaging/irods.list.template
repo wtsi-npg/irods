@@ -173,6 +173,7 @@ else
 fi
 
 if [ "$$PACKAGEUPGRADE" = "true" ] ; then
+
   # Upgrade
   echo "Upgrading Existing iRODS Installation"
   mkdir -p $IRODS_HOME_DIR
@@ -204,14 +205,16 @@ if [ "$$PACKAGEUPGRADE" = "true" ] ; then
 
   # get database password from pre-4.1 installations
   if [ "$$IRODSVERSION" \< "4.1.0" ] ; then
-    OBFDBPASS=`grep "^DBPassword" /etc/irods/server.config | tail -n1 | awk '{print $$2}'`
-    DBKEY=`grep "^DBKey" /etc/irods/server.config | tail -n1 | awk '{print $$2}'`
-    UNOBFDBLINE=`su - $$MYACCTNAME -c "iadmin dspass \"$$OBFDBPASS\" \"$$DBKEY\""`
-    UNOBFDBPASS=`echo $$UNOBFDBLINE | awk -F ':' '{print $$2}'`
-    PLAINTEXT_FILENAME=$IRODS_HOME_DIR/plaintext_database_password.txt
-    echo $$UNOBFDBPASS > $$PLAINTEXT_FILENAME
-    chown $$MYACCTNAME:$$MYGROUPNAME $$PLAINTEXT_FILENAME
-    chmod 600 $$PLAINTEXT_FILENAME
+    if [ -f /etc/irods/server.config ] ; then
+      OBFDBPASS=`grep "^DBPassword" /etc/irods/server.config | tail -n1 | awk '{print $$2}'`
+      DBKEY=`grep "^DBKey" /etc/irods/server.config | tail -n1 | awk '{print $$2}'`
+      UNOBFDBLINE=`su - $$MYACCTNAME -c "iadmin dspass \"$$OBFDBPASS\" \"$$DBKEY\""`
+      UNOBFDBPASS=`echo $$UNOBFDBLINE | awk -F ':' '{print $$2}'`
+      PLAINTEXT_FILENAME=$IRODS_HOME_DIR/plaintext_database_password.txt
+      echo $$UNOBFDBPASS > $$PLAINTEXT_FILENAME
+      chown $$MYACCTNAME:$$MYGROUPNAME $$PLAINTEXT_FILENAME
+      chmod 600 $$PLAINTEXT_FILENAME
+    fi
   fi
 
 else
@@ -268,30 +271,6 @@ END_PREINSTALL
 # post remove
 # =-=-=-=-=-=-=-
 %postremove << END_POSTREMOVE
-
-# determine whether this is an upgrade
-if [ "$$1" -eq "$$1" ] 2>/dev/null ; then
-  # integer, therefore rpm
-  if [ $$1 -gt 0 ] ; then
-    PACKAGEUPGRADE="true"
-  else
-    PACKAGEUPGRADE="false"
-  fi
-else
-  # string, therefore deb
-  if [ "$$1" = "upgrade" ] ; then
-    PACKAGEUPGRADE="true"
-  else
-    PACKAGEUPGRADE="false"
-  fi
-fi
-
-# on remove or purge
-if [ "$$PACKAGEUPGRADE" = "false" ] ; then
-  rm -rf $IRODS_HOME_DIR
-  rm -rf /etc/irods/
-fi
-
 END_POSTREMOVE
 
 
@@ -394,6 +373,7 @@ f 644 root root ${IRODS_HOME}/scripts/notify/cront ./iRODS/scripts/notify/cront
 d 755 root root ${IRODS_HOME}/scripts/python -
 f 644 root root ${IRODS_HOME}/scripts/python/system_identification.py ./iRODS/scripts/python/system_identification.py
 f 644 root root ${IRODS_HOME}/scripts/python/pid_age.py ./iRODS/scripts/python/pid_age.py
+f 644 root root ${IRODS_HOME}/scripts/python/get_db_schema_version.py ./iRODS/scripts/python/get_db_schema_version.py
 f 644 root root ${IRODS_HOME}/scripts/python/validate_json.py ./iRODS/scripts/python/validate_json.py
 f 644 root root ${IRODS_HOME}/scripts/python/kill_pid.py ./iRODS/scripts/python/kill_pid.py
 d 755 root root ${IRODS_HOME}/scripts/perl -

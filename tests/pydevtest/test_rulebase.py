@@ -6,7 +6,10 @@ else:
 import os
 import socket
 import time  # remove once file hash fix is commited #2279
+import lib
+import time
 
+import configuration
 from resource_suite import ResourceBase
 
 
@@ -24,13 +27,16 @@ class Test_Rulebase(ResourceBase, unittest.TestCase):
         self.admin.assert_icommand("iadmin mkresc r2 unixfilesystem " + hostname + ":/tmp/irods/r2", 'STDOUT_SINGLELINE', "Creating")
 
         # save original core.re
-        os.system("cp /etc/irods/core.re /etc/irods/core.re.orig")
+        corefile = os.path.join(lib.get_core_re_dir(), "core.re")
+        origcorefile = os.path.join(lib.get_core_re_dir(), "core.re.orig")
+        os.system("cp "+corefile+" "+origcorefile)
 
         # add acPostProcForPut replication rule
-        os.system(
-            '''sed -e '/^acPostProcForPut/i acPostProcForPut { replicateMultiple( "r1,r2" ); }' /etc/irods/core.re > /tmp/irods/core.re''')
+        part1="sed -e '/^acPostProcForPut/i acPostProcForPut { replicateMultiple( \"r1,r2\" ); }' "
+        part2=part1+corefile+' > '+origcorefile
+        os.system(part2)
         time.sleep(1)  # remove once file hash fix is commited #2279
-        os.system("cp /tmp/irods/core.re /etc/irods/core.re")
+        os.system("cp "+origcorefile+" "+corefile)
         time.sleep(1)  # remove once file hash fix is commited #2279
 
         # add new rule to end of core.re
@@ -58,9 +64,9 @@ class Test_Rulebase(ResourceBase, unittest.TestCase):
                 """
         with open('/tmp/irods/newrule', 'w') as f:
             f.write(newrule)
-        os.system("cat /etc/irods/core.re /tmp/irods/newrule > /tmp/irods/core.re")
+        os.system("cat "+corefile+" /tmp/irods/newrule > "+origcorefile)
         time.sleep(1)  # remove once file hash fix is commited #2279
-        os.system("cp /tmp/irods/core.re /etc/irods/core.re")
+        os.system("cp "+origcorefile+" "+corefile)
         time.sleep(1)  # remove once file hash fix is commited #2279
 
         # put data
@@ -80,16 +86,18 @@ class Test_Rulebase(ResourceBase, unittest.TestCase):
 
         # restore core.re
         time.sleep(1)  # remove once file hash fix is commited #2279
-        os.system("cp /etc/irods/core.re.orig /etc/irods/core.re")
+        os.system("cp " + origcorefile + " " + corefile)
         time.sleep(1)  # remove once file hash fix is commited #2279
 
     def test_dynamic_pep_with_rscomm_usage(self):
         # save original core.re
-        os.system("cp /etc/irods/core.re /etc/irods/core.re.orig")
+        corefile = os.path.join(lib.get_core_re_dir(), "core.re")
+        origcorefile = os.path.join(lib.get_core_re_dir(), "core.re.orig")
+        os.system("cp "+corefile+" "+origcorefile)
 
         # add dynamic PEP with rscomm usage
         time.sleep(1)  # remove once file hash fix is commited #2279
-        os.system('''echo "pep_resource_open_pre(*OUT) { msiGetSystemTime( *junk, '' ); }" >> /etc/irods/core.re''')
+        os.system('''echo "pep_resource_open_pre(*OUT) { msiGetSystemTime( *junk, '' ); }" >> '''+corefile)
         time.sleep(1)  # remove once file hash fix is commited #2279
 
         # check rei functioning
@@ -97,5 +105,58 @@ class Test_Rulebase(ResourceBase, unittest.TestCase):
 
         # restore core.re
         time.sleep(1)  # remove once file hash fix is commited #2279
-        os.system("cp /etc/irods/core.re.orig /etc/irods/core.re")
+        os.system("cp "+origcorefile+" "+corefile)
         time.sleep(1)  # remove once file hash fix is commited #2279
+
+    @unittest.skipIf(configuration.TOPOLOGY_FROM_RESOURCE_SERVER, 'Skip for topology testing from resource server: reads re server log')
+    def test_rulebase_update__2585(self):
+        rule_file = 'my_rule.r'
+        test_re=os.path.join(lib.get_core_re_dir(),'test.re')
+        my_rule = """
+my_rule {
+    delay("<PLUSET>1s</PLUSET>") {
+        do_some_stuff();
+    }
+}
+INPUT null
+OUTPUT ruleExecOut
+        """
+        with open(rule_file,'w') as f:
+            f.write(my_rule)
+
+        server_config_filename = lib.get_irods_config_dir() + '/server_config.json'
+        with lib.file_backed_up(server_config_filename):
+            # write new rule file to config dir
+            test_rule='do_some_stuff() { writeLine( "serverLog", "TEST_STRING_TO_FIND_1_2585" ); }'
+            with open(test_re,'w') as f:
+                f.write(test_rule)
+
+            # update server config with additional rule file
+            server_config_update = {
+                "re_rulebase_set": [ { "filename": "test" }, {"filename": "core" } ]
+            }
+            lib.update_json_file_from_dict(server_config_filename, server_config_update)
+            time.sleep( 35 ) # wait for delay rule engine to wake
+
+            # checkpoint log to know where to look for the string
+            initial_log_size = lib.get_log_size('re')
+            self.admin.assert_icommand('irule -F '+rule_file)
+            time.sleep( 35 ) # wait for test to fire
+            assert lib.count_occurrences_of_string_in_log('re', 'TEST_STRING_TO_FIND_1_2585',start_index=initial_log_size)
+
+            # repave rule with new string
+            test_rule='do_some_stuff() { writeLine( "serverLog", "TEST_STRING_TO_FIND_2_2585" ); }'
+            os.unlink(test_re)
+            with open(test_re,'w') as f:
+                f.write(test_rule)
+            time.sleep( 35 ) # wait for delay rule engine to wake
+
+            # checkpoint log to know where to look for the string
+            initial_log_size = lib.get_log_size('re')
+            self.admin.assert_icommand('irule -F '+rule_file)
+            time.sleep( 35 ) # wait for test to fire
+            assert lib.count_occurrences_of_string_in_log('re', 'TEST_STRING_TO_FIND_2_2585',start_index=initial_log_size)
+
+        # cleanup
+        os.unlink(test_re)
+        os.unlink(rule_file)

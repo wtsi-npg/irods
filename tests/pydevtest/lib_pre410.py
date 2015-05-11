@@ -17,9 +17,27 @@ import subprocess
 import sys
 import tempfile
 import time
+import errno
 
 import configuration
 
+# Two-way mapping of the new (json) and old iRODS environment setting names
+json_env_map = {'irods_host': 'irodsHost',
+                'irods_port': 'irodsPort',
+                'irods_default_resource': 'irodsDefResource',
+                'irods_home': 'irodsHome',
+                'irods_cwd': 'irodsCwd',
+                'irods_user_name': 'irodsUserName',
+                'irods_zone_name': 'irodsZone',
+                'irods_client_server_negotiation': 'irodsClientServerNegotiation',
+                'irods_client_server_policy': 'irodsClientServerPolicy',
+                'irods_encryption_salt_size': 'irodsEncryptionSaltSize',
+                'irods_encryption_num_hash_rounds': 'irodsEncryptionNumHashRounds',
+                'irods_encryption_algorithm': 'irodsEncryptionAlgorithm',
+                'irods_default_hash_scheme': 'irodsDefaultHashScheme',
+                'irods_match_hash_policy': 'irodsMatchHashPolicy'}
+
+json_env_map.update((val, key) for key, val in json_env_map.items())
 
 def update_json_file_from_dict(filename, update_dict):
     with open(filename) as f:
@@ -32,19 +50,15 @@ def get_hostname():
     return socket.gethostname()
 
 def get_irods_top_level_dir():
-    return os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    try:
+        return configuration.IRODS_DIR
+    except NameError:
+        return os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 def get_irods_config_dir():
     if os.path.isfile('/etc/irods/server_config.json'):
         return '/etc/irods'
-    return os.path.join(get_irods_top_level_dir(), 'iRODS/server/config')
-
-def get_core_re_dir():
-    top_lvl = get_irods_top_level_dir()
-    bin_flg = os.path.join(top_lvl, 'packaging/binary_installation.flag')
-    if os.path.isfile(bin_flg):
-        return '/etc/irods'
-    return os.path.join(get_irods_config_dir(), 'reConfigs')
+    return os.path.join(get_irods_top_level_dir(), 'config')
 
 def create_directory_of_small_files(directory_name_suffix, file_count):
     if not os.path.exists(directory_name_suffix):
@@ -134,7 +148,7 @@ def get_log_path(log_source):
     assert log_source in log_prefix_dict, log_source
 
     log_prefix = log_prefix_dict[log_source]
-    server_log_dir = os.path.join(get_irods_top_level_dir(), 'iRODS/server/log')
+    server_log_dir = os.path.join(get_irods_top_level_dir(), 'server/log')
     command_str = 'ls -t {0}/{1}* | head -n1'.format(server_log_dir, log_prefix)
     proc = subprocess.Popen(command_str, stdout=subprocess.PIPE, shell=True)
     stdout, stderr = proc.communicate()
@@ -300,17 +314,17 @@ def make_environment_dict(username, hostname, zone_name):
         'irods_zone_name': zone_name,
         'irods_client_server_negotiation': 'request_server_negotiation',
         'irods_client_server_policy': 'CS_NEG_REFUSE',
-        'irods_encryption_key_size': 32,
+        #'irods_encryption_key_size': 32,
         'irods_encryption_salt_size': 8,
         'irods_encryption_num_hash_rounds': 16,
         'irods_encryption_algorithm': 'AES-256-CBC',
         'irods_default_hash_scheme': 'SHA256',
-        'irods_maximum_size_for_single_buffer_in_megabytes': 32,
-        'irods_default_number_of_transfer_threads': 4,
-        'irods_maximum_number_of_transfer_threads': 64,
-        'irods_transfer_buffer_size_for_parallel_transfer_in_megabytes': 4
-
+        #'irods_maximum_size_for_single_buffer_in_megabytes': 32,
+        #'irods_default_number_of_transfer_threads': 4,
+        #'irods_maximum_number_of_transfer_threads': 64,
+        #'irods_transfer_buffer_size_for_parallel_transfer_in_megabytes': 4
     }
+    
     if configuration.USE_SSL:
         environment.update({
             'irods_client_server_policy': 'CS_NEG_REQUIRE',
@@ -345,8 +359,33 @@ def open_and_load_json_ascii(filename):
     with open(filename) as f:
         return json.load(f, object_hook=json_object_hook_ascii_dict)
 
+def open_and_load_pre410_env_file(filename):
+    '''
+    A very brittle parsing takes place here:
+    Each line of .irodsEnv is split into tokens.
+    If the first token matches a key in our old-new setting map
+    we use the corresponding json setting, and the second token as value
+    '''
+    irods_env = {}
+    with open(filename) as env_file:
+        for line in env_file.readlines():
+            tokens = line.strip().split()
+            if len(tokens) > 1 and tokens[0] in json_env_map:
+                irods_env[json_env_map[tokens[0]]] = tokens[1]
+
+    return irods_env
+
 def get_service_account_environment_file_contents():
-    return open_and_load_json_ascii(os.path.expanduser('~/.irods/irods_environment.json'))
+    '''
+    Try to load environment settings from json file.
+    If json environment file not found, load from old style .irodsEnv
+    '''
+    try:
+        return open_and_load_json_ascii(os.path.expanduser('~/.irods/irods_environment.json'))
+    except IOError as err:
+        if err.errno != errno.ENOENT:
+            raise err
+        return open_and_load_pre410_env_file(os.path.expanduser('~/.irods/.irodsEnv'))
 
 def make_session_for_existing_admin():
     service_env = get_service_account_environment_file_contents()
@@ -412,6 +451,11 @@ class IrodsSession(object):
         self._local_session_dir = tempfile.mkdtemp(prefix='irods-testing-')
         self._environment_file_path = os.path.join(self._local_session_dir, 'irods_environment.json')
         self._authentication_file_path = os.path.join(self._local_session_dir, 'irods_authentication')
+        
+        # old-style iRODS environment
+        self._pre410_environment_file_path = os.path.join(self._local_session_dir, '.irodsEnv')
+        self._pre410_authentication_file_path = os.path.join(self._local_session_dir, '.irodsA')
+        
         self._session_id = datetime.datetime.utcnow().strftime('%Y-%m-%dZ%H:%M:%S--') + os.path.basename(self._local_session_dir)
 
         self.assert_icommand(['iinit', self._password])
@@ -431,11 +475,11 @@ class IrodsSession(object):
 
     @property
     def zone_name(self):
-        return self._environment_file_contents['irods_zone_name']
+        return self._environment_file_contents['irods_zone_name'].strip("'")
 
     @property
     def username(self):
-        return self._environment_file_contents['irods_user_name']
+        return self._environment_file_contents['irods_user_name'].strip("'")
 
     @property
     def password(self):
@@ -443,23 +487,19 @@ class IrodsSession(object):
 
     @property
     def default_resource(self):
-        return self._environment_file_contents['irods_default_resource']
+        return self._environment_file_contents['irods_default_resource'].strip("'")
 
     @property
     def local_session_dir(self):
         return self._local_session_dir
 
     @property
+    def session_collection(self):
+        return os.path.join('/', self.zone_name, 'home', self.username, self._session_id)
+
+    @property
     def home_collection(self):
         return os.path.join('/', self.zone_name, 'home', self.username)
-
-    @property
-    def session_collection(self):
-        return os.path.join(self.home_collection, self._session_id)
-
-    @property
-    def session_collection_trash(self):
-        return self.session_collection.replace('/home/', '/trash/home/', 1)
 
     def run_icommand(self, *args, **kwargs):
         self._prepare_run_icommand(args[0], kwargs)
@@ -478,8 +518,8 @@ class IrodsSession(object):
         self._write_environment_file()
         if 'env' not in kwargs:
             environment = os.environ.copy()
-            environment['IRODS_ENVIRONMENT_FILE'] = self._environment_file_path
-            environment['IRODS_AUTHENTICATION_FILE'] = self._authentication_file_path
+            environment['irodsEnvFile'] = self._pre410_environment_file_path
+            environment['irodsAuthFileName'] = self._pre410_authentication_file_path
             kwargs['env'] = environment
 
     def _log_run_icommand(self, arg):
@@ -491,7 +531,7 @@ class IrodsSession(object):
                            'iqstat', 'ichksum', 'itrim', 'iphymv', 'ibun',
                            'iphybun', 'ireg', 'imcoll', 'irsync', 'ixmsg',
                            'irule', 'iqdel', 'iticket', 'iapitest', 'iscan',
-                           'isysmeta', 'iadmin', 'ifsck', 'izonereport']
+                           'isysmeta', 'iadmin', 'ifsck',]
 
         if isinstance(arg, basestring):
             icommand = shlex.split(arg)[0]
@@ -509,6 +549,15 @@ class IrodsSession(object):
             with open(self._environment_file_path, 'w') as f:
                 json.dump(self._environment_file_contents, f)
             self._environment_file_invalid = False
+            
+            # also write old-style environment file alongside the new one
+            self._write_pre410_environment_file()
+
+    def _write_pre410_environment_file(self):
+        with open(self._pre410_environment_file_path, 'w') as env_file:
+            for key, value in self._environment_file_contents.items():
+                env_line = '{setting} {value}\n'.format(setting=json_env_map[key], value=value)
+                env_file.write(env_line)
 
     def __enter__(self):
         return self

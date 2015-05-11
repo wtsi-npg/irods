@@ -226,6 +226,12 @@ echo "Build Directory set to [$BUILDDIR]"
 # populate VERSION.json from VERSION.json.dist with current information
 cd $BUILDDIR
 python packaging/generate_version_json.py > VERSION.json
+
+if [ "RUNINPLACE"=="1" ] ; then
+    python -c "from __future__ import print_function; import datetime; import json; data=json.load(open('VERSION.json')); data['installation_time'] = datetime.datetime.utcnow().strftime( '%Y-%m-%dT%H:%M:%SZ' ); print(json.dumps(data, indent=4, sort_keys=True))" > VERSION.json.tmp
+    mv VERSION.json.tmp VERSION.json
+fi
+
 # read iRODS Version from JSON
 IRODSVERSION=`python -c "from __future__ import print_function; import json; d = json.loads(open('VERSION.json').read()); print(d['irods_version'])"`
 echo "IRODSVERSION=$IRODSVERSION" > VERSION.tmp # needed for Makefiles
@@ -536,10 +542,13 @@ if [ "$1" == "clean" ] ; then
     rm -f iRODS/lib/core/include/rodsVersion.h
     rm -f iRODS/server/core/include/irods_plugin_home_directory.hpp
     rm -f iRODS/lib/core/include/irods_home_directory.hpp
+    rm -f /tmp/$USER/setup_irods_configuration.flag
+
     # database plugin cleanup
     ./plugins/database/build.sh clean
     rm -f iRODS/config/platform.mk
     rm -f iRODS/config/config.mk
+    rm -f /tmp/$USER/setup_irods_database.flag
 
     # avro generated header files
     rm -f iRODS/lib/core/include/server_control_plane_command.hpp
@@ -1077,7 +1086,7 @@ rsync -c $TMPFILE $LEGACY_VERSION_H_FILE
 # irods_version.h.template
 TEMPLATE_IRODS_VERSION_MAJOR=`python iRODS/scripts/python/get_irods_version.py major`
 TEMPLATE_IRODS_VERSION_MINOR=`python iRODS/scripts/python/get_irods_version.py minor`
-TEMPLATE_IRODS_VERSION_POINT=`python iRODS/scripts/python/get_irods_version.py point`
+TEMPLATE_IRODS_VERSION_PATCHLEVEL=`python iRODS/scripts/python/get_irods_version.py patchlevel`
 TEMPLATE_IRODS_BUILD_DATE_STRING=`date +"%Y%m%d"`
 set_tmpfile
 IRODS_VERSION_H_FILE=./iRODS/lib/core/include/irods_version.h
@@ -1086,7 +1095,7 @@ sed -e "s,TEMPLATE_IRODS_VERSION_MAJOR,$TEMPLATE_IRODS_VERSION_MAJOR,g" $IRODS_V
 rsync -c $TMPFILE $IRODS_VERSION_H_FILE
 sed -e "s,TEMPLATE_IRODS_VERSION_MINOR,$TEMPLATE_IRODS_VERSION_MINOR,g" $IRODS_VERSION_H_FILE > $TMPFILE
 rsync -c $TMPFILE $IRODS_VERSION_H_FILE
-sed -e "s,TEMPLATE_IRODS_VERSION_POINT,$TEMPLATE_IRODS_VERSION_POINT,g" $IRODS_VERSION_H_FILE > $TMPFILE
+sed -e "s,TEMPLATE_IRODS_VERSION_PATCHLEVEL,$TEMPLATE_IRODS_VERSION_PATCHLEVEL,g" $IRODS_VERSION_H_FILE > $TMPFILE
 rsync -c $TMPFILE $IRODS_VERSION_H_FILE
 sed -e "s,TEMPLATE_IRODS_BUILD_DATE_STRING,$TEMPLATE_IRODS_BUILD_DATE_STRING,g" $IRODS_VERSION_H_FILE > $TMPFILE
 rsync -c $TMPFILE $IRODS_VERSION_H_FILE
