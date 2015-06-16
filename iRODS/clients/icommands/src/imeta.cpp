@@ -10,6 +10,9 @@
 #include "irods_client_api_table.hpp"
 #include "irods_pack_table.hpp"
 
+#include <string>
+#include <vector>
+
 #define MAX_SQL 300
 #define BIG_STR 3000
 
@@ -88,9 +91,8 @@ showDataObj( char *name, char *attrName, int wild ) {
     int i1b[10];
     int i2a[10];
     char *condVal[10];
-    char v1[BIG_STR];
-    char v2[BIG_STR];
-    char v3[BIG_STR];
+    std::string v1, v2, v3;
+
     char fullName[MAX_NAME_LEN];
     char myDirName[MAX_NAME_LEN];
     char myFileName[MAX_NAME_LEN];
@@ -135,12 +137,14 @@ showDataObj( char *name, char *attrName, int wild ) {
     }
 
     i2a[0] = COL_COLL_NAME;
-    snprintf( v1, sizeof( v1 ), "='%s'", cwd );
-    condVal[0] = v1;
+    v1 = "='";
+    v1 += cwd;
+    v1 += "'";
 
     i2a[1] = COL_DATA_NAME;
-    snprintf( v2, sizeof( v1 ), "='%s'", name );
-    condVal[1] = v2;
+    v2 = "='";
+    v2 += name;
+    v2 += "'";
 
     if ( *name == '/' ) {
         snprintf( fullName, sizeof( fullName ), "%s", name );
@@ -155,8 +159,14 @@ showDataObj( char *name, char *attrName, int wild ) {
                                           MAX_NAME_LEN, myFileName, MAX_NAME_LEN, '/' ) ) {
             rodsLog( LOG_ERROR, "splitPathByKey failed in showDataObj with status %d", status );
         }
-        snprintf( v1, sizeof( v1 ), "='%s'", myDirName );
-        snprintf( v2, sizeof( v2 ), "='%s'", myFileName );
+
+        v1 = "='";
+        v1 += myDirName;
+        v1 += "'";
+
+        v2 = "='";
+        v2 += myFileName;
+        v2 += "'";
     }
 
     genQueryInp.sqlCondInp.inx = i2a;
@@ -166,14 +176,21 @@ showDataObj( char *name, char *attrName, int wild ) {
     if ( attrName != NULL && *attrName != '\0' ) {
         i2a[2] = COL_META_DATA_ATTR_NAME;
         if ( wild ) {
-            snprintf( v3, sizeof( v3 ), "like '%s'", attrName );
+            v3 += "like '";
+            v3 += attrName;
+            v3 += "'";
         }
         else {
-            snprintf( v3, sizeof( v3 ), "= '%s'", attrName );
+            v3 += "='";
+            v3 += attrName;
+            v3 += "'";
         }
-        condVal[2] = v3;
+        condVal[2] = ( char* )v3.c_str();
         genQueryInp.sqlCondInp.len++;
     }
+
+    condVal[0] = ( char* )v1.c_str();
+    condVal[1] = ( char* )v2.c_str();
 
     genQueryInp.maxRows = 10;
     genQueryInp.continueInx = 0;
@@ -229,8 +246,8 @@ showColl( char *name, char *attrName, int wild ) {
     int i1b[10];
     int i2a[10];
     char *condVal[10];
-    char v1[BIG_STR];
-    char v2[BIG_STR];
+    std::string v1, v2;
+
     char fullName[MAX_NAME_LEN];
     int  status;
     char *columnNames[] = {"attribute", "value", "units"};
@@ -277,8 +294,11 @@ showColl( char *name, char *attrName, int wild ) {
     }
 
     i2a[0] = COL_COLL_NAME;
-    snprintf( v1, sizeof( v1 ), "='%s'", fullName );
-    condVal[0] = v1;
+    v1 += "='";
+    v1 += fullName;
+    v1 += "'";
+
+    condVal[0] = ( char* )v1.c_str();
 
     genQueryInp.sqlCondInp.inx = i2a;
     genQueryInp.sqlCondInp.value = condVal;
@@ -287,12 +307,16 @@ showColl( char *name, char *attrName, int wild ) {
     if ( attrName != NULL && *attrName != '\0' ) {
         i2a[1] = COL_META_COLL_ATTR_NAME;
         if ( wild ) {
-            snprintf( v2, sizeof( v2 ), "like '%s'", attrName );
+            v2 += "like '";
+            v2 += attrName;
+            v2 += "'";
         }
         else {
-            snprintf( v2, sizeof( v2 ), "= '%s'", attrName );
+            v2 += "='";
+            v2 += attrName;
+            v2 += "'";
         }
-        condVal[1] = v2;
+        condVal[1] = ( char* )v2.c_str();
         genQueryInp.sqlCondInp.len++;
     }
 
@@ -347,8 +371,8 @@ showResc( char *name, char *attrName, int wild ) {
     int i1b[10];
     int i2a[10];
     char *condVal[10];
-    char v1[BIG_STR];
-    char v2[BIG_STR];
+    std::string v1, v2;
+
     int  status;
     char *columnNames[] = {"attribute", "value", "units"};
 
@@ -374,8 +398,10 @@ showResc( char *name, char *attrName, int wild ) {
     genQueryInp.selectInp.len = 3;
 
     i2a[0] = COL_R_RESC_NAME;
-    snprintf( v1, sizeof( v1 ), "='%s'", name );
-    condVal[0] = v1;
+    v1 += "='";
+    v1 += name;
+    v1 += "'";
+    condVal[0] = ( char* )v1.c_str();
 
     genQueryInp.sqlCondInp.inx = i2a;
     genQueryInp.sqlCondInp.value = condVal;
@@ -384,12 +410,16 @@ showResc( char *name, char *attrName, int wild ) {
     if ( attrName != NULL && *attrName != '\0' ) {
         i2a[1] = COL_META_RESC_ATTR_NAME;
         if ( wild ) {
-            snprintf( v2, sizeof( v2 ), "like '%s'", attrName );
+            v2 += "like '";
+            v2 += attrName;
+            v2 += "'";
         }
         else {
-            snprintf( v2, sizeof( v2 ), "= '%s'", attrName );
+            v2 += "='";
+            v2 += attrName;
+            v2 += "'";
         }
-        condVal[1] = v2;
+        condVal[1] = ( char* ) v2.c_str();
         genQueryInp.sqlCondInp.len++;
     }
 
@@ -444,9 +474,7 @@ showUser( char *name, char *attrName, int wild ) {
     int i1b[10];
     int i2a[10];
     char *condVal[10];
-    char v1[BIG_STR];
-    char v2[BIG_STR];
-    char v3[BIG_STR];
+    std::string v1, v2, v3;
     int status;
     char *columnNames[] = {"attribute", "value", "units"};
 
@@ -484,12 +512,14 @@ showUser( char *name, char *attrName, int wild ) {
     genQueryInp.selectInp.len = 3;
 
     i2a[0] = COL_USER_NAME;
-    snprintf( v1, sizeof( v1 ), "='%s'", userName );
-    condVal[0] = v1;
+    v1 += "='";
+    v1 += userName;
+    v1 += "'";
 
     i2a[1] = COL_USER_ZONE;
-    snprintf( v2, sizeof( v2 ), "='%s'", userZone );
-    condVal[1] = v2;
+    v2 += "='";
+    v2 += userZone;
+    v2 += "'";
 
     genQueryInp.sqlCondInp.inx = i2a;
     genQueryInp.sqlCondInp.value = condVal;
@@ -498,14 +528,21 @@ showUser( char *name, char *attrName, int wild ) {
     if ( attrName != NULL && *attrName != '\0' ) {
         i2a[2] = COL_META_USER_ATTR_NAME;
         if ( wild ) {
-            snprintf( v3, sizeof( v3 ), "like '%s'", attrName );
+            v3 += "like '";
+            v3 += attrName;
+            v3 += "'";
         }
         else {
-            snprintf( v3, sizeof( v3 ), "= '%s'", attrName );
+            v3 += "='";
+            v3 += attrName;
+            v3 += "'";
         }
-        condVal[2] = v3;
+        condVal[2] = ( char* )v3.c_str();
         genQueryInp.sqlCondInp.len++;
     }
+
+    condVal[0] = ( char* )v1.c_str();
+    condVal[1] = ( char* )v2.c_str();
 
     genQueryInp.maxRows = 10;
     genQueryInp.continueInx = 0;
@@ -558,14 +595,13 @@ int queryDataObj( char *cmdToken[] ) {
     int i1b[20];
     int i2a[20];
     char *condVal[20];
-    char v1[BIG_STR];
-    char v2[BIG_STR];
-    char v3[BIG_STR];
+    std::string v1, v2, v3;
+
     int status;
     char *columnNames[] = {"collection", "dataObj"};
     int cmdIx;
     int condIx;
-    char vstr[20] [BIG_STR];
+    std::vector< std::string > vstr( 20 );
 
     memset( &genQueryInp, 0, sizeof( genQueryInp_t ) );
     if ( upperCaseFlag ) {
@@ -586,36 +622,50 @@ int queryDataObj( char *cmdToken[] ) {
     genQueryInp.selectInp.len = 2;
 
     i2a[0] = COL_META_DATA_ATTR_NAME;
-    snprintf( v1, sizeof( v1 ), "='%s'", cmdToken[2] );
-    condVal[0] = v1;
+    v1 += "='";
+    v1 += cmdToken[2];
+    v1 += "'";
 
     i2a[1] = COL_META_DATA_ATTR_VALUE;
-    snprintf( v2, sizeof( v2 ), "%s '%s'", cmdToken[3], cmdToken[4] );
-    condVal[1] = v2;
+    v2 += cmdToken[3];
+    v2 += " '";
+    v2 += cmdToken[4];
+    v2 += "'";
 
     genQueryInp.sqlCondInp.inx = i2a;
     genQueryInp.sqlCondInp.value = condVal;
     genQueryInp.sqlCondInp.len = 2;
 
     if ( strcmp( cmdToken[5], "or" ) == 0 ) {
-        snprintf( v3, sizeof( v3 ), "|| %s '%s'", cmdToken[6], cmdToken[7] );
-        rstrcat( v2, v3, BIG_STR );
+        v3 += " || ";
+        v3 += cmdToken[6];
+        v3 += " '";
+        v3 += cmdToken[7];
+        v3 += "'";
+        v2 += v3;
     }
+
+    condVal[0] = ( char* )v1.c_str();
+    condVal[1] = ( char* )v2.c_str();
 
     cmdIx = 5;
     condIx = 2;
     while ( strcmp( cmdToken[cmdIx], "and" ) == 0 ) {
         i2a[condIx] = COL_META_DATA_ATTR_NAME;
         cmdIx++;
-        snprintf( vstr[condIx], BIG_STR, "='%s'", cmdToken[cmdIx] );
-        condVal[condIx] = vstr[condIx];
+        vstr[condIx] = "='";
+        vstr[condIx] += cmdToken[cmdIx];
+        vstr[condIx] += "'";
+        condVal[condIx] = ( char* )vstr[condIx].c_str();
         condIx++;
 
         i2a[condIx] = COL_META_DATA_ATTR_VALUE;
-        snprintf( vstr[condIx], BIG_STR,
-                  "%s '%s'", cmdToken[cmdIx + 1], cmdToken[cmdIx + 2] );
+        vstr[condIx] += cmdToken[cmdIx + 1];
+        vstr[condIx] = " '";
+        vstr[condIx] += cmdToken[cmdIx + 2];
+        vstr[condIx] += "'";
         cmdIx += 3;
-        condVal[condIx] = vstr[condIx];
+        condVal[condIx] = ( char* )vstr[condIx].c_str();
         condIx++;
         genQueryInp.sqlCondInp.len += 2;
     }
@@ -660,14 +710,13 @@ int queryCollection( char *cmdToken[] ) {
     int i1b[20];
     int i2a[20];
     char *condVal[20];
-    char v1[BIG_STR];
-    char v2[BIG_STR];
-    char v3[BIG_STR];
+    std::string v1, v2, v3;
+
     int status;
     char *columnNames[] = {"collection"};
     int cmdIx;
     int condIx;
-    char vstr[20] [BIG_STR];
+    std::vector<std::string> vstr;
 
     memset( &genQueryInp, 0, sizeof( genQueryInp_t ) );
     if ( upperCaseFlag ) {
@@ -686,36 +735,52 @@ int queryCollection( char *cmdToken[] ) {
     genQueryInp.selectInp.len = 1;
 
     i2a[0] = COL_META_COLL_ATTR_NAME;
-    snprintf( v1, sizeof( v1 ), "='%s'", cmdToken[2] );
-    condVal[0] = v1;
+    v1 += "='";
+    v1 += cmdToken[2];
+    v1 += "'";
 
     i2a[1] = COL_META_COLL_ATTR_VALUE;
-    snprintf( v2, sizeof( v2 ), "%s '%s'", cmdToken[3], cmdToken[4] );
-    condVal[1] = v2;
+    v2 += cmdToken[3];
+    v2 += " '";
+    v2 += cmdToken[4];
+    v2 += "'";
 
     genQueryInp.sqlCondInp.inx = i2a;
     genQueryInp.sqlCondInp.value = condVal;
     genQueryInp.sqlCondInp.len = 2;
 
     if ( strcmp( cmdToken[5], "or" ) == 0 ) {
-        snprintf( v3, sizeof( v3 ), "|| %s '%s'", cmdToken[6], cmdToken[7] );
-        rstrcat( v2, v3, BIG_STR );
+        v3 += " || ";
+        v3 += cmdToken[6];
+        v3 += " '";
+        v3 += cmdToken[7];
+        v3 += "'";
+
+        v2 += v3;
+
     }
+
+    condVal[0] = ( char* )v1.c_str();
+    condVal[1] = ( char* )v2.c_str();
 
     cmdIx = 5;
     condIx = 2;
     while ( strcmp( cmdToken[cmdIx], "and" ) == 0 ) {
         i2a[condIx] = COL_META_COLL_ATTR_NAME;
         cmdIx++;
-        snprintf( vstr[condIx], BIG_STR, "='%s'", cmdToken[cmdIx] );
-        condVal[condIx] = vstr[condIx];
+        vstr[condIx] = "='";
+        vstr[condIx] += cmdToken[cmdIx];
+        vstr[condIx] += "'";
+        condVal[condIx] = ( char* )vstr[condIx].c_str();
         condIx++;
 
         i2a[condIx] = COL_META_COLL_ATTR_VALUE;
-        snprintf( vstr[condIx], BIG_STR,
-                  "%s '%s'", cmdToken[cmdIx + 1], cmdToken[cmdIx + 2] );
+        vstr[condIx] += cmdToken[cmdIx + 1];
+        vstr[condIx] = " '";
+        vstr[condIx] += cmdToken[cmdIx + 2];
+        vstr[condIx] += "'";
         cmdIx += 3;
-        condVal[condIx] = vstr[condIx];
+        condVal[condIx] = ( char* )vstr[condIx].c_str();
         condIx++;
         genQueryInp.sqlCondInp.len += 2;
     }
@@ -761,8 +826,8 @@ int queryResc( char *attribute, char *op, char *value ) {
     int i1b[10];
     int i2a[10];
     char *condVal[10];
-    char v1[BIG_STR];
-    char v2[BIG_STR];
+    std::string v1, v2;
+
     int status;
     char *columnNames[] = {"resource"};
 
@@ -779,12 +844,18 @@ int queryResc( char *attribute, char *op, char *value ) {
     genQueryInp.selectInp.len = 1;
 
     i2a[0] = COL_META_RESC_ATTR_NAME;
-    snprintf( v1, sizeof( v1 ), "='%s'", attribute );
-    condVal[0] = v1;
+    v1 += "='";
+    v1 += attribute;
+    v1 += "'";
 
     i2a[1] = COL_META_RESC_ATTR_VALUE;
-    snprintf( v2, sizeof( v2 ), "%s '%s'", op, value );
-    condVal[1] = v2;
+    v2 += op;
+    v2 += " '";
+    v2 += value;
+    v2 += "'";
+
+    condVal[0] = ( char* )v1.c_str();
+    condVal[1] = ( char* )v2.c_str();
 
     genQueryInp.sqlCondInp.inx = i2a;
     genQueryInp.sqlCondInp.value = condVal;
@@ -825,10 +896,9 @@ int queryUser( char *attribute, char *op, char *value ) {
     int i1b[10];
     int i2a[10];
     char *condVal[10];
-    char v1[BIG_STR];
-    char v2[BIG_STR];
     int status;
     char *columnNames[] = {"user", "zone"};
+    std::string v1, v2;
 
     printCount = 0;
     memset( &genQueryInp, 0, sizeof( genQueryInp_t ) );
@@ -849,12 +919,18 @@ int queryUser( char *attribute, char *op, char *value ) {
     genQueryInp.selectInp.len = 2;
 
     i2a[0] = COL_META_USER_ATTR_NAME;
-    snprintf( v1, sizeof( v1 ), "='%s'", attribute );
-    condVal[0] = v1;
+    v1 += "='";
+    v1 += attribute;
+    v1 += "'";
 
     i2a[1] = COL_META_USER_ATTR_VALUE;
-    snprintf( v2, sizeof( v2 ), "%s '%s'", op, value );
-    condVal[1] = v2;
+    v2 += op;
+    v2 += " '";
+    v2 += value;
+    v2 += "'";
+
+    condVal[0] = ( char* )v1.c_str();
+    condVal[1] = ( char* )v2.c_str();
 
     genQueryInp.sqlCondInp.inx = i2a;
     genQueryInp.sqlCondInp.value = condVal;
@@ -894,8 +970,6 @@ modCopyAVUMetadata( char *arg0, char *arg1, char *arg2, char *arg3,
                     char *arg4, char *arg5, char *arg6, char *arg7 ) {
     modAVUMetadataInp_t modAVUMetadataInp;
     int status;
-    char *mySubName;
-    char *myName;
     char fullName1[MAX_NAME_LEN];
     char fullName2[MAX_NAME_LEN];
 
@@ -957,9 +1031,11 @@ modCopyAVUMetadata( char *arg0, char *arg1, char *arg2, char *arg3,
                 rodsLog( LOG_ERROR, "Level %d: %s", i, ErrMsg->msg );
             }
         }
-        myName = rodsErrorName( status, &mySubName );
+        char *mySubName = NULL;
+        const char *myName = rodsErrorName( status, &mySubName );
         rodsLog( LOG_ERROR, "rcModAVUMetadata failed with error %d %s %s",
                  status, myName, mySubName );
+        free( mySubName );
     }
 
     if ( status == CAT_UNKNOWN_FILE ) {
@@ -993,8 +1069,6 @@ modAVUMetadata( char *arg0, char *arg1, char *arg2, char *arg3,
                 char *arg4, char *arg5, char *arg6, char *arg7, char *arg8 ) {
     modAVUMetadataInp_t modAVUMetadataInp;
     int status;
-    char *mySubName;
-    char *myName;
     char fullName[MAX_NAME_LEN];
 
     if ( strcmp( arg1, "-R" ) == 0 || strcmp( arg1, "-r" ) == 0 ||
@@ -1012,7 +1086,6 @@ modAVUMetadata( char *arg0, char *arg1, char *arg2, char *arg3,
     else {
         snprintf( fullName, sizeof( fullName ), "%s", cwd );
     }
-
 
     modAVUMetadataInp.arg0 = arg0;
     modAVUMetadataInp.arg1 = arg1;
@@ -1040,9 +1113,11 @@ modAVUMetadata( char *arg0, char *arg1, char *arg2, char *arg3,
                 rodsLog( LOG_ERROR, "Level %d: %s", i, ErrMsg->msg );
             }
         }
-        myName = rodsErrorName( status, &mySubName );
+        char *mySubName = NULL;
+        const char *myName = rodsErrorName( status, &mySubName );
         rodsLog( LOG_ERROR, "rcModAVUMetadata failed with error %d %s %s",
                  status, myName, mySubName );
+        free( mySubName );
     }
     return status;
 }
@@ -1247,7 +1322,7 @@ doCommand( char *cmdToken[] ) {
                         cmdToken[6], cmdToken[7], cmdToken[8] );
         return 0;
     }
-    if ( strcmp( cmdToken[0], "set" ) == 0 ) { // JMC - backport 4836
+    if ( strcmp( cmdToken[0], "set" ) == 0 ) {
         modAVUMetadata( "set", cmdToken[1], cmdToken[2],
                         cmdToken[3], cmdToken[4], cmdToken[5],
                         cmdToken[6], cmdToken[7], "" );
@@ -1360,8 +1435,6 @@ main( int argc, char **argv ) {
 
     rodsArguments_t myRodsArgs;
 
-    char *mySubName;
-    char *myName;
 
     int argOffset;
 
@@ -1497,12 +1570,14 @@ main( int argc, char **argv ) {
                       myEnv.rodsZone, 0, &errMsg );
 
     if ( Conn == NULL ) {
-        myName = rodsErrorName( errMsg.status, &mySubName );
+        char *mySubName = NULL;
+        const char *myName = rodsErrorName( errMsg.status, &mySubName );
         rodsLog( LOG_ERROR, "rcConnect failure %s (%s) (%d) %s",
                  myName,
                  mySubName,
                  errMsg.status,
                  errMsg.msg );
+        free( mySubName );
 
         exit( 2 );
     }
@@ -1572,23 +1647,21 @@ void usageMain() {
         " rmi -d|C|R|u Name MetadataID (Remove AVU by MetadataID)",
         " mod -d|C|R|u Name AttName AttValue [AttUnits] [n:Name] [v:Value] [u:Units]",
         "      (modify AVU; new name (n:), value(v:), and/or units(u:)",
-        " set -d|C|R|u Name AttName newValue [newUnits] (Assign a single value)", // JMC - backport 4836
+        " set -d|C|R|u Name AttName newValue [newUnits] (Assign a single value)",
         " ls  -[l]d|C|R|u Name [AttName] (List existing AVUs for item Name)",
         " lsw -[l]d|C|R|u Name [AttName] (List existing AVUs, use Wildcards)",
         " qu -d|C|R|u AttName Op AttVal [...] (Query objects with matching AVUs)",
         " cp -d|C|R|u -d|C|R|u Name1 Name2 (Copy AVUs from item Name1 to Name2)",
-        " upper (Toggle between upper case mode for queries (qu)",
+        " upper (Toggle between upper case mode for queries (qu))",
         " ",
         "Metadata attribute-value-units triples (AVUs) consist of an Attribute-Name,",
         "Attribute-Value, and an optional Attribute-Units.  They can be added",
         "via the 'add' command (and in other ways), and",
         "then queried to find matching objects.",
         " ",
-        "For each command, -d, -C, -R or -u is used to specify which type of",
-        "object to work with: dataobjs (irods files), collections, resources,",
-        " or users. (Within imeta -c or -r can be used, but -C,",
-        " -R is the",
-        "iRODS standard options for collections and resources.)",
+        "For each command, -d, -C, -R, or -u is used to specify which type of",
+        "object to work with: dataobjs (iRODS files), collections, resources,",
+        "or users.",
         " ",
         "Fields represented with upper case, such as Name, are entered values.  For",
         "example, 'Name' is the name of a dataobject, collection, resource,",
@@ -1819,8 +1892,6 @@ usage( char *subOpt ) {
                 printf( "%s\n", msgs[i] );
             }
         }
-// =-=-=-=-=-=-=-
-// JMC - backport 4836
         if ( strcmp( subOpt, "set" ) == 0 ) {
             char *msgs[] = {
                 " set -d|C|R|u Name AttName newValue [newUnits]  (assign a single value)",
@@ -1842,7 +1913,6 @@ usage( char *subOpt ) {
                 printf( "%s\n", msgs[i] );
             }
         }
-// =-=-=-=-=-=-=-
         if ( strcmp( subOpt, "qu" ) == 0 ) {
             char *msgs[] = {
                 " qu -d|C|R|u AttName Op AttVal [...] (Query objects with matching AVUs)",

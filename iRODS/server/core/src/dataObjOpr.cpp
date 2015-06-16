@@ -602,7 +602,7 @@ sortDataObjInfoRandom( dataObjInfo_t **dataObjInfoHead ) {
     tmpDataObjInfo = *dataObjInfoHead;
     while ( tmpDataObjInfo != NULL ) {
         if ( tmpCnt > 1 ) {
-            order = random() % tmpCnt;
+            order = getRandomInt() % tmpCnt;
         }
         else {
             order = 0;
@@ -1671,7 +1671,7 @@ getDataObjInfoIncSpecColl( rsComm_t *rsComm, dataObjInp_t *dataObjInp,
     }
     else if ( writeFlag > 0 && dataObjInp->oprType != REPLICATE_OPR ) {
         status = getDataObjInfo( rsComm, dataObjInp, dataObjInfo,
-                                 ACCESS_DELETE_OBJECT, 0 );
+                                 ACCESS_MODIFY_OBJECT, 0 );
     }
     else {
         status = getDataObjInfo( rsComm, dataObjInp, dataObjInfo,

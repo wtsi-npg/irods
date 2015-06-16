@@ -93,7 +93,9 @@ printFormatted( char *format, char *args[], int nargs ) {
         }
         std::cout << formatter;
     }
-    catch ( ... ) {}
+    catch ( const boost::io::format_error& _e ) {
+        std::cout << _e.what() << std::endl;
+    }
 }
 
 void
@@ -121,6 +123,7 @@ printBasicGenQueryOut( genQueryOut_t *genQueryOut, char *format ) {
                 tResult += i * genQueryOut->sqlResult[j].len;
                 results[j] = tResult;
             }
+
             printFormatted( format, results, j );
         }
     }

@@ -97,8 +97,6 @@ getFilePathName( rsComm_t *rsComm, dataObjInfo_t *dataObjInfo,
         rstrcpy( dataObjInfo->filePath, filePath, MAX_NAME_LEN );
         return 0;
     }
-    else {
-    }
 
     /* Make up a physical path */
     if ( dataObjInfo->rescName[0] == '\0' ) {
@@ -193,13 +191,12 @@ getVaultPathPolicy( rsComm_t *rsComm, dataObjInfo_t *dataObjInfo,
 int
 setPathForRandomScheme( char *objPath, const char *vaultPath, char *userName,
                         char *outPath ) {
-    int myRandom;
     int dir1, dir2;
     char logicalCollName[MAX_NAME_LEN];
     char logicalFileName[MAX_NAME_LEN];
     int status;
 
-    myRandom = random();
+    unsigned int myRandom = getRandomInt();
     dir1 = myRandom & 0xf;
     dir2 = ( myRandom >> 4 ) & 0xf;
 
@@ -543,10 +540,11 @@ chkAndHandleOrphanFile( rsComm_t *rsComm, char* objPath, char* rescHier, char *f
             status = renameFilePathToNewDir( rsComm, REPL_DIR, &fileRenameInp,
                                              1, new_fn );
             if ( status < 0 ) {
-                char* sys_error;
-                char* rods_error = rodsErrorName( status, &sys_error );
+                char* sys_error = NULL;
+                const char* rods_error = rodsErrorName( status, &sys_error );
                 rodsLog( LOG_ERROR, "%s:%d renameFilePathToNewDir failed for file: %s - status = %d %s %s",
                          __FUNCTION__, __LINE__, filePath, status, rods_error, sys_error );
+                free( sys_error );
                 return status;
             }
             /* register the change */
@@ -596,10 +594,11 @@ chkAndHandleOrphanFile( rsComm_t *rsComm, char* objPath, char* rescHier, char *f
                 return 0;
             }
             else {
-                char* sys_error;
-                char* rods_error = rodsErrorName( status, &sys_error );
+                char* sys_error = NULL;
+                const char* rods_error = rodsErrorName( status, &sys_error );
                 rodsLog( LOG_ERROR, "%s:%d renameFilePathToNewDir failed for file: %s - status = %d %s %s",
                          __FUNCTION__, __LINE__, filePath, status, rods_error, sys_error );
+                free( sys_error );
                 return status;
             }
         }
@@ -617,10 +616,11 @@ chkAndHandleOrphanFile( rsComm_t *rsComm, char* objPath, char* rescHier, char *f
             return 1;
         }
         else {
-            char* sys_error;
-            char* rods_error = rodsErrorName( status, &sys_error );
+            char* sys_error = NULL;
+            const char* rods_error = rodsErrorName( status, &sys_error );
             rodsLog( LOG_ERROR, "%s:%d renameFilePathToNewDir failed for file: %s - status = %d %s %s",
                      __FUNCTION__, __LINE__, filePath, status, rods_error, sys_error );
+            free( sys_error );
             return status;
         }
     }
@@ -693,8 +693,8 @@ renameFilePathToNewDir( rsComm_t *rsComm, char *newDir,
     oldPtr = filePath + len;
     newPtr = fileRenameInp->newFileName + len;
 
-    snprintf( newPtr, MAX_NAME_LEN - len, "/%s%s.%-d", newDir, oldPtr,
-              ( uint ) random() );
+    snprintf( newPtr, MAX_NAME_LEN - len, "/%s%s.%-u", newDir, oldPtr,
+              getRandomInt() );
 
 
     if ( renameFlag > 0 ) {
@@ -1043,7 +1043,7 @@ getDefFileMode() {
     irods::error ret = irods::get_server_property<std::string>(
                            DEF_FILE_MODE_KW,
                            mode_str );
-    if( ret.ok() ) {
+    if ( ret.ok() ) {
         std::stringstream ss;
         ss << std::oct << mode_str;
         ss >> mode_int;
@@ -1060,7 +1060,7 @@ getDefDirMode() {
     irods::error ret = irods::get_server_property<std::string>(
                            DEF_DIR_MODE_KW,
                            mode_str );
-    if( ret.ok() ) {
+    if ( ret.ok() ) {
         std::stringstream ss;
         ss << std::oct << mode_str;
         ss >> mode_int;
@@ -1163,8 +1163,8 @@ rsMkOrphanPath( rsComm_t *rsComm, char *objPath, char *orphanPath ) {
     }
     orphanPathPtr = orphanPath + strlen( orphanPath );
 
-    snprintf( orphanPathPtr, strlen( childName ) + 20, "/%s.%-d",
-              childName, ( uint ) random() );
+    snprintf( orphanPathPtr, strlen( childName ) + 20, "/%s.%-u",
+              childName, getRandomInt() );
 
     return 0;
 }
@@ -1210,22 +1210,22 @@ getDataObjLockPath( char *objPath, char **outLockPath ) {
     irods::error ret = irods::get_full_path_for_config_file(
                            LOCK_FILE_DIR,
                            lock_path );
-    if( !ret.ok() ) {
+    if ( !ret.ok() ) {
         irods::log( PASS( ret ) );
         return ret.code();
     }
 
     len = lock_path.size() +
-          strlen( tmpPath ) + 
+          strlen( tmpPath ) +
           strlen( LOCK_FILE_TRAILER ) + 10;
     *outLockPath = ( char * ) malloc( len );
 
-    snprintf( 
-        *outLockPath, 
-        len, 
-        "%-s/%-s.%-s", 
-        lock_path.c_str(), 
-        tmpPath, 
+    snprintf(
+        *outLockPath,
+        len,
+        "%-s/%-s.%-s",
+        lock_path.c_str(),
+        tmpPath,
         LOCK_FILE_TRAILER );
 
     return 0;

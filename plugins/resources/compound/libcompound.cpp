@@ -463,8 +463,8 @@ extern "C" {
                             bzero( &data_obj_inp, sizeof( data_obj_inp ) );
                             rstrcpy( data_obj_inp.objPath, obj->logical_path().c_str(), MAX_NAME_LEN );
                             data_obj_inp.createMode = obj->mode();
-                            
-                            copyKeyVal( (keyValPair_t*)&obj->cond_input(), &data_obj_inp.condInput );
+
+                            copyKeyVal( ( keyValPair_t* )&obj->cond_input(), &data_obj_inp.condInput );
                             rmKeyVal( &data_obj_inp.condInput, PURGE_CACHE_KW ); // do not want to accidentally purge
 
                             char* no_chk = getValByKey( ( keyValPair_t* )&obj->cond_input(), NO_CHK_COPY_LEN_KW );
@@ -481,11 +481,12 @@ extern "C" {
 
                             transferStat_t* trans_stat = NULL;
                             int status = rsDataObjRepl( _ctx.comm(), &data_obj_inp, &trans_stat );
+                            free( trans_stat );
+                            clearKeyVal( &data_obj_inp.condInput );
                             if ( status < 0 ) {
                                 std::stringstream msg;
                                 msg << "Failed to replicate the data object [" << obj->logical_path() << "] ";
                                 msg << "for operation [" << _stage_sync_kw << "]";
-                                free( trans_stat );
                                 return ERROR( status, msg.str() );
                             }
 

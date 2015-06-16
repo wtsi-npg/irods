@@ -807,18 +807,18 @@ _rescHasParentOrChild( char* rescId ) {
 /// @brief function which determines if a char is allowed in a zone name
 static bool allowed_zone_char( const char _c ) {
     return ( !std::isalnum( _c ) &&
-             !( '_' == _c )      &&
-             !( '-' == _c ) );
+             !( '.' == _c )      &&
+             !( '_' == _c ) );
 } // allowed_zone_char
 
 // =-=-=-=-=-=-=-
-/// @brief function for validing the name of a zone
+/// @brief function for validating the name of a zone
 irods::error validate_zone_name(
     std::string _zone_name ) {
     std::string::iterator itr = std::find_if( _zone_name.begin(),
                                 _zone_name.end(),
                                 allowed_zone_char );
-    if ( itr != _zone_name.end() ) {
+    if ( itr != _zone_name.end() || _zone_name.length() >= NAME_LEN ) {
         std::stringstream msg;
         msg << "validate_zone_name failed for zone [";
         msg << _zone_name;
@@ -1601,9 +1601,15 @@ int _modInheritance( int inheritFlag, int recursiveFlag, const char *collIdStr, 
         if ( logSQL != 0 ) {
             rodsLog( LOG_SQL, "_modInheritance SQL 2" );
         }
+#ifdef ORA_ICAT
+        status =  cmlExecuteNoAnswerSql(
+                      "update R_COLL_MAIN set coll_inheritance=?, modify_ts=? where coll_name = ? or coll_name like ? ESCAPE '\\'",
+                      &icss );
+#else
         status =  cmlExecuteNoAnswerSql(
                       "update R_COLL_MAIN set coll_inheritance=?, modify_ts=? where coll_name = ? or coll_name like ?",
                       &icss );
+#endif
     }
     if ( status != 0 ) {
         _rollback( "_modInheritance" );
@@ -1612,8 +1618,8 @@ int _modInheritance( int inheritFlag, int recursiveFlag, const char *collIdStr, 
 
     char auditStr[30];
     snprintf( auditStr, sizeof( auditStr ), "inheritance %srecursive %s",
-            recursiveFlag ? "" : "non-",
-            newValue );
+              recursiveFlag ? "" : "non-",
+              newValue );
 
     /* Audit */
     status = cmlAudit5( AU_MOD_ACCESS_CONTROL_COLL,
@@ -2313,7 +2319,7 @@ extern "C" {
 
         // =-=-=-=-=-=-=-
         // check the params
-        if (    !_data_obj_info ||
+        if ( !_data_obj_info ||
                 !_reg_param ) {
             return ERROR(
                        CAT_INVALID_ARGUMENT,
@@ -2362,23 +2368,23 @@ extern "C" {
            names; one for one. */
         int dataTypeIndex = 1; /* matches table below for quick check */
         // Using the keyword defines so there is one point of truth - hcj
-        char *regParamNames[] = {
+        const char *regParamNames[] = {
             REPL_NUM_KW,        DATA_TYPE_KW,       DATA_SIZE_KW,
             RESC_NAME_KW,       FILE_PATH_KW,       DATA_OWNER_KW,
             DATA_OWNER_ZONE_KW, REPL_STATUS_KW,     CHKSUM_KW,
             DATA_EXPIRY_KW,     DATA_COMMENTS_KW,   DATA_CREATE_KW,
-            DATA_MODIFY_KW,     DATA_MODE_KW,		RESC_HIER_STR_KW,
+            DATA_MODIFY_KW,     DATA_MODE_KW,       RESC_HIER_STR_KW,
             "END"
         };
 
         /* If you update colNames, be sure to update DATA_EXPIRY_TS_IX if
          * you add items before "data_expiry_ts" and */
-        char *colNames[] = {
-            "data_repl_num",   "data_type_name",	"data_size",
-            "resc_name",       "data_path",			"data_owner_name",
-            "data_owner_zone", "data_is_dirty",		"data_checksum",
-            "data_expiry_ts",  "r_comment",			"create_ts",
-            "modify_ts",       "data_mode",			"resc_hier"
+        const char *colNames[] = {
+            "data_repl_num",   "data_type_name", "data_size",
+            "resc_name",       "data_path",      "data_owner_name",
+            "data_owner_zone", "data_is_dirty",  "data_checksum",
+            "data_expiry_ts",  "r_comment",      "create_ts",
+            "modify_ts",       "data_mode",      "resc_hier"
         };
         int DATA_EXPIRY_TS_IX = 9; /* must match index in above colNames table */
         int MODIFY_TS_IX = 12;   /* must match index in above colNames table */
@@ -2708,9 +2714,9 @@ extern "C" {
         else {
             /* mark this one as NEWLY_CREATED_COPY and others as OLD_COPY */
             j = upCols;
-            updateCols[j] = "data_is_dirty";
+            updateCols.push_back( "data_is_dirty" );
             snprintf( newCopy, NAME_LEN, "%d", NEWLY_CREATED_COPY );
-            updateVals[j] = newCopy;
+            updateVals.push_back( newCopy );
             upCols++;
             if ( logSQL != 0 ) {
                 rodsLog( LOG_SQL, "chlModDataObjMeta SQL 5" );
@@ -2794,7 +2800,7 @@ extern "C" {
 
         // =-=-=-=-=-=-=-
         // check the params
-        if (    !_data_obj_info ) {
+        if ( !_data_obj_info ) {
             return ERROR(
                        CAT_INVALID_ARGUMENT,
                        "null parameter" );
@@ -2865,16 +2871,15 @@ extern "C" {
                                              mySessionClientAddr,
                                              &icss );
         if ( iVal < 0 ) {
-            char errMsg[105];
             if ( iVal == CAT_UNKNOWN_COLLECTION ) {
-                snprintf( errMsg, 100, "collection '%s' is unknown",
-                          logicalDirName );
-                addRErrorMsg( &_ctx.comm()->rError, 0, errMsg );
+                std::stringstream errMsg;
+                errMsg << "collection '" << logicalDirName << "' is unknown";
+                addRErrorMsg( &_ctx.comm()->rError, 0, errMsg.str().c_str() );
             }
-            if ( iVal == CAT_NO_ACCESS_PERMISSION ) {
-                snprintf( errMsg, 100, "no permission to update collection '%s'",
-                          logicalDirName );
-                addRErrorMsg( &_ctx.comm()->rError, 0, errMsg );
+            else if ( iVal == CAT_NO_ACCESS_PERMISSION ) {
+                std::stringstream errMsg;
+                errMsg << "no permission to update collection '" << logicalDirName << "'";
+                addRErrorMsg( &_ctx.comm()->rError, 0, errMsg.str().c_str() );
             }
             return ERROR( iVal, "" );
         }
@@ -3043,9 +3048,9 @@ extern "C" {
         // =-=-=-=-=-=-=-
         // check the params
         if (
-                !_src_data_obj_info ||
-                !_dst_data_obj_info ||
-                !_cond_input ) {
+            !_src_data_obj_info ||
+            !_dst_data_obj_info ||
+            !_cond_input ) {
             return ERROR(
                        CAT_INVALID_ARGUMENT,
                        "null parameter" );
@@ -3274,7 +3279,7 @@ extern "C" {
         // =-=-=-=-=-=-=-
         // check the params
         if (
-                !_data_obj_info ) {
+            !_data_obj_info ) {
             return ERROR(
                        CAT_INVALID_ARGUMENT,
                        "null parameter" );
@@ -3550,7 +3555,7 @@ extern "C" {
         // =-=-=-=-=-=-=-
         // check the params
         if (
-                !_re_sub_inp ) {
+            !_re_sub_inp ) {
             return ERROR(
                        CAT_INVALID_ARGUMENT,
                        "null parameter" );
@@ -3668,8 +3673,8 @@ extern "C" {
         // =-=-=-=-=-=-=-
         // check the params
         if (
-                !_re_id  ||
-                !_reg_param ) {
+            !_re_id  ||
+            !_reg_param ) {
             return ERROR(
                        CAT_INVALID_ARGUMENT,
                        "null parameter" );
@@ -3796,7 +3801,7 @@ extern "C" {
         // =-=-=-=-=-=-=-
         // check the params
         if (
-                !_re_id ) {
+            !_re_id ) {
             return ERROR(
                        CAT_INVALID_ARGUMENT,
                        "null parameter" );
@@ -4758,7 +4763,7 @@ extern "C" {
         // =-=-=-=-=-=-=-
         // check the params
         if (
-                !_user_info ) {
+            !_user_info ) {
             return ERROR(
                        CAT_INVALID_ARGUMENT,
                        "null parameter" );
@@ -4955,7 +4960,7 @@ extern "C" {
         // =-=-=-=-=-=-=-
         // check the params
         if (
-                !_coll_info ) {
+            !_coll_info ) {
             return ERROR(
                        CAT_INVALID_ARGUMENT,
                        "null parameter" );
@@ -5170,7 +5175,7 @@ extern "C" {
         // =-=-=-=-=-=-=-
         // check the params
         if (
-                !_coll_info ) {
+            !_coll_info ) {
             return ERROR(
                        CAT_INVALID_ARGUMENT,
                        "null parameter" );
@@ -5407,7 +5412,7 @@ extern "C" {
         // =-=-=-=-=-=-=-
         // check the params
         if (
-                !_coll_info ) {
+            !_coll_info ) {
             return ERROR(
                        CAT_INVALID_ARGUMENT,
                        "null parameter" );
@@ -5446,17 +5451,16 @@ extern "C" {
                             ACCESS_MODIFY_OBJECT, &icss );
 
         if ( iVal < 0 ) {
-            char errMsg[105];
             if ( iVal == CAT_UNKNOWN_COLLECTION ) {
-                snprintf( errMsg, 100, "collection '%s' is unknown",
-                          _coll_info->collName );
-                addRErrorMsg( &_ctx.comm()->rError, 0, errMsg );
+                std::stringstream errMsg;
+                errMsg << "collection '" << _coll_info->collName << "' is unknown";
+                addRErrorMsg( &_ctx.comm()->rError, 0, errMsg.str().c_str() );
                 return ERROR( CAT_UNKNOWN_COLLECTION, "unknown collection" );
             }
             if ( iVal == CAT_NO_ACCESS_PERMISSION ) {
-                snprintf( errMsg, 100, "no permission to update collection '%s'",
-                          _coll_info->collName );
-                addRErrorMsg( &_ctx.comm()->rError, 0, errMsg );
+                std::stringstream errMsg;
+                errMsg << "no permission to update collection '" << _coll_info->collName << "'";
+                addRErrorMsg( &_ctx.comm()->rError, 0, errMsg.str().c_str() );
                 return  ERROR( CAT_NO_ACCESS_PERMISSION, "no permission" );
             }
             return ERROR( iVal, "cmlCheckDir failed" );
@@ -5559,10 +5563,10 @@ extern "C" {
         // =-=-=-=-=-=-=-
         // check the params
         if (
-                !_zone_name ||
-                !_zone_type ||
-                !_zone_conn_info ||
-                !_zone_comment ) {
+            !_zone_name ||
+            !_zone_type ||
+            !_zone_conn_info ||
+            !_zone_comment ) {
             return ERROR(
                        CAT_INVALID_ARGUMENT,
                        "null parameter" );
@@ -5683,9 +5687,9 @@ extern "C" {
         // =-=-=-=-=-=-=-
         // check the params
         if (
-                !_zone_name ||
-                !_option ||
-                !_option_value ) {
+            !_zone_name ||
+            !_option ||
+            !_option_value ) {
             return ERROR(
                        CAT_INVALID_ARGUMENT,
                        "null parameter" );
@@ -5792,6 +5796,20 @@ extern "C" {
                               "It is not valid to rename the local zone via chlModZone; iadmin should use acRenameLocalZone" );
                 return ERROR( CAT_INVALID_ARGUMENT, "cannot rename localzone" );
             }
+
+            // =-=-=-=-=-=-=-
+            // validate the zone name does not include improper characters
+            ret = validate_zone_name( _option_value );
+            if ( !ret.ok() ) {
+                irods::log( ret );
+                std::string msg( "zone name is invalid [" );
+                msg += _option_value;
+                msg += "]";
+                addRErrorMsg( &_ctx.comm()->rError, 0,
+                              msg.c_str() );
+                return PASS( ret );
+            }
+
             cllBindVars[cllBindVarCount++] = _option_value;
             cllBindVars[cllBindVarCount++] = myTime;
             cllBindVars[cllBindVarCount++] = zoneId;
@@ -5856,8 +5874,8 @@ extern "C" {
         // =-=-=-=-=-=-=-
         // check the params
         if (
-                !_old_coll ||
-                !_new_coll ) {
+            !_old_coll ||
+            !_new_coll ) {
             return ERROR(
                        CAT_INVALID_ARGUMENT,
                        "null parameter" );
@@ -5922,9 +5940,9 @@ extern "C" {
         // =-=-=-=-=-=-=-
         // check the params
         if (
-                !_access_level ||
-                !_user_name ||
-                !_path_name ) {
+            !_access_level ||
+            !_user_name ||
+            !_path_name ) {
             return ERROR(
                        CAT_INVALID_ARGUMENT,
                        "null parameter" );
@@ -5981,8 +5999,8 @@ extern "C" {
         // =-=-=-=-=-=-=-
         // check the params
         if (
-                !_old_zone ||
-                !_new_zone ) {
+            !_old_zone ||
+            !_new_zone ) {
             return ERROR(
                        CAT_INVALID_ARGUMENT,
                        "null parameter" );
@@ -6193,7 +6211,7 @@ extern "C" {
         // =-=-=-=-=-=-=-
         // check the params
         if (
-                !_zone_name ) {
+            !_zone_name ) {
             return ERROR(
                        CAT_INVALID_ARGUMENT,
                        "null parameter" );
@@ -6605,7 +6623,7 @@ extern "C" {
         // =-=-=-=-=-=-=-
         // check the params
         if (
-                !_coll_info ) {
+            !_coll_info ) {
             return ERROR(
                        CAT_INVALID_ARGUMENT,
                        "null parameter" );
@@ -6773,7 +6791,7 @@ extern "C" {
         // =-=-=-=-=-=-=-
         // check the params
         if (
-                !_coll_info ) {
+            !_coll_info ) {
             return ERROR(
                        CAT_INVALID_ARGUMENT,
                        "null parameter" );
@@ -7115,7 +7133,7 @@ extern "C" {
         ret = irods::get_advanced_setting<int>(
                   irods::CFG_MAX_TEMP_PASSWORD_LIFETIME,
                   temp_password_max_time );
-        if( !ret.ok() ) {
+        if ( !ret.ok() ) {
             return PASS( ret );
         }
 
@@ -7124,7 +7142,7 @@ extern "C" {
             ret = irods::get_advanced_setting<int>(
                       irods::CFG_DEF_TEMP_PASSWORD_LIFETIME,
                       temp_password_time );
-            if( !ret.ok() ) {
+            if ( !ret.ok() ) {
                 return PASS( ret );
             }
 
@@ -7309,8 +7327,8 @@ checkLevel:
         // =-=-=-=-=-=-=-
         // check the params
         if (
-                !_pw_value_to_hash ||
-                !_other_user ) {
+            !_pw_value_to_hash ||
+            !_other_user ) {
             return ERROR(
                        CAT_INVALID_ARGUMENT,
                        "null parameter" );
@@ -7320,7 +7338,7 @@ checkLevel:
         ret = irods::get_advanced_setting<int>(
                   irods::CFG_DEF_TEMP_PASSWORD_LIFETIME,
                   temp_password_time );
-        if( !ret.ok() ) {
+        if ( !ret.ok() ) {
             return PASS( ret );
         }
 
@@ -7481,7 +7499,7 @@ checkLevel:
         // =-=-=-=-=-=-=-
         // check the params
         if (
-                !_pw_value_to_hash ) {
+            !_pw_value_to_hash ) {
             return ERROR(
                        CAT_INVALID_ARGUMENT,
                        "null parameter" );
@@ -7491,7 +7509,7 @@ checkLevel:
         ret = irods::get_advanced_setting<int>(
                   irods::CFG_DEF_TEMP_PASSWORD_LIFETIME,
                   temp_password_time );
-        if( !ret.ok() ) {
+        if ( !ret.ok() ) {
             return PASS( ret );
         }
 
@@ -7662,8 +7680,8 @@ checkLevel:
         // =-=-=-=-=-=-=-
         // check the params
         if (
-                !_user_name ||
-                !_irods_password ) {
+            !_user_name ||
+            !_irods_password ) {
             return ERROR(
                        CAT_INVALID_ARGUMENT,
                        "null parameter" );
@@ -7879,9 +7897,9 @@ checkLevel:
         // =-=-=-=-=-=-=-
         // check the params
         if (
-                !_user_name ||
-                !_option    ||
-                !_new_value ) {
+            !_user_name ||
+            !_option    ||
+            !_new_value ) {
             return ERROR(
                        CAT_INVALID_ARGUMENT,
                        "null parameter" );
@@ -8247,9 +8265,9 @@ checkLevel:
         // =-=-=-=-=-=-=-
         // check the params
         if (
-                !_group_name ||
-                !_option     ||
-                !_user_name ) {
+            !_group_name ||
+            !_option     ||
+            !_user_name ) {
             return ERROR(
                        CAT_INVALID_ARGUMENT,
                        "null parameter" );
@@ -8464,9 +8482,9 @@ checkLevel:
         // =-=-=-=-=-=-=-
         // check the params
         if (
-                !_resc_name  ||
-                !_option     ||
-                !_option_value ) {
+            !_resc_name  ||
+            !_option     ||
+            !_option_value ) {
             return ERROR(
                        CAT_INVALID_ARGUMENT,
                        "null parameter" );
@@ -9034,9 +9052,9 @@ checkLevel:
         // =-=-=-=-=-=-=-
         // check the params
         if (
-                !_resc_name ||
-                !_old_path  ||
-                !_new_path ) {
+            !_resc_name ||
+            !_old_path  ||
+            !_new_path ) {
             return ERROR(
                        CAT_INVALID_ARGUMENT,
                        "null parameter" );
@@ -9208,7 +9226,7 @@ checkLevel:
         // =-=-=-=-=-=-=-
         // check the params
         if (
-                !_resc_name ) {
+            !_resc_name ) {
             return ERROR(
                        CAT_INVALID_ARGUMENT,
                        "null parameter" );
@@ -9307,7 +9325,7 @@ checkLevel:
         // =-=-=-=-=-=-=-
         // check the params
         if (
-                !_user_info ) {
+            !_user_info ) {
             return ERROR(
                        CAT_INVALID_ARGUMENT,
                        "null parameter" );
@@ -9569,9 +9587,9 @@ checkLevel:
         // =-=-=-=-=-=-=-
         // check the params
         if (
-                !_type   ||
-                !_name   ||
-                !_attribute ) {
+            !_type   ||
+            !_name   ||
+            !_attribute ) {
             return ERROR( CAT_INVALID_ARGUMENT, "null parameter" );
 
         }
@@ -9774,9 +9792,9 @@ checkLevel:
         // =-=-=-=-=-=-=-
         // check the params
         if (
-                !_type   ||
-                !_name   ||
-                !_attribute ) {
+            !_type   ||
+            !_name   ||
+            !_attribute ) {
             return ERROR( CAT_INVALID_ARGUMENT, "null parameter" );
 
         }
@@ -10145,9 +10163,9 @@ checkLevel:
         // =-=-=-=-=-=-=-
         // check the params
         if (
-                !_type   ||
-                !_name   ||
-                !_attribute ) {
+            !_type   ||
+            !_name   ||
+            !_attribute ) {
             return ERROR( CAT_INVALID_ARGUMENT, "null parameter" );
 
         }
@@ -10478,9 +10496,9 @@ checkLevel:
         // =-=-=-=-=-=-=-
         // check the params
         if (
-                !_type   ||
-                !_name   ||
-                !_attribute ) {
+            !_type   ||
+            !_name   ||
+            !_attribute ) {
             return ERROR( CAT_INVALID_ARGUMENT, "null parameter" );
 
         }
@@ -10603,9 +10621,9 @@ checkLevel:
         // =-=-=-=-=-=-=-
         // check the params
         if (
-                !_type   ||
-                !_name   ||
-                !_attribute ) {
+            !_type   ||
+            !_name   ||
+            !_attribute ) {
             return ERROR( CAT_INVALID_ARGUMENT, "null parameter" );
 
         }
@@ -10979,10 +10997,10 @@ checkLevel:
         // =-=-=-=-=-=-=-
         // check the params
         if (
-                !_type1  ||
-                !_type2  ||
-                !_name1  ||
-                !_name2 ) {
+            !_type1  ||
+            !_type2  ||
+            !_name1  ||
+            !_name2 ) {
             return ERROR( CAT_INVALID_ARGUMENT, "null parameter" );
 
         }
@@ -11377,7 +11395,7 @@ checkLevel:
             char logicalEndName[MAX_NAME_LEN];
             char logicalParentDirName[MAX_NAME_LEN];
             int status2 = splitPathByKey( _path_name,
-                                      logicalParentDirName, MAX_NAME_LEN, logicalEndName, MAX_NAME_LEN, '/' );
+                                          logicalParentDirName, MAX_NAME_LEN, logicalEndName, MAX_NAME_LEN, '/' );
             if ( strlen( logicalParentDirName ) == 0 ) {
                 snprintf( logicalParentDirName, sizeof( logicalParentDirName ), "%s", PATH_SEPARATOR );
                 snprintf( logicalEndName, sizeof( logicalEndName ), "%s", _path_name + 1 );
@@ -11422,8 +11440,8 @@ checkLevel:
 
                 if ( status1 == CAT_UNKNOWN_COLLECTION && status2 == CAT_UNKNOWN_FILE ) {
                     snprintf( errMsg, 200,
-                            "Input path is not a collection and not a dataObj: %s",
-                            _path_name );
+                              "Input path is not a collection and not a dataObj: %s",
+                              _path_name );
                     addRErrorMsg( &_ctx.comm()->rError, 0, errMsg );
                     return ERROR( CAT_INVALID_ARGUMENT, "unknown collection or file" );
                 }
@@ -11432,9 +11450,9 @@ checkLevel:
                         rodsLog( LOG_SQL, "chlModAccessControl SQL 12" );
                     }
                     int status = cmlCheckDirOwn( _path_name,
-                            _ctx.comm()->clientUser.userName,
-                            _ctx.comm()->clientUser.rodsZone,
-                            &icss );
+                                                 _ctx.comm()->clientUser.userName,
+                                                 _ctx.comm()->clientUser.rodsZone,
+                                                 &icss );
                     if ( status < 0 ) {
                         return ERROR( status1, "cmlCheckDirOwn failed" );
                     }
@@ -11448,9 +11466,9 @@ checkLevel:
                             rodsLog( LOG_SQL, "chlModAccessControl SQL 13" );
                         }
                         int status = cmlCheckDataObjOwn( logicalParentDirName, logicalEndName,
-                                _ctx.comm()->clientUser.userName,
-                                _ctx.comm()->clientUser.rodsZone,
-                                &icss );
+                                                         _ctx.comm()->clientUser.userName,
+                                                         _ctx.comm()->clientUser.rodsZone,
+                                                         &icss );
                         if ( status < 0 ) {
                             _rollback( "chlModAccessControl" );
                             return ERROR( status2, "cmlCheckDataObjOwn failed" );
@@ -11488,8 +11506,8 @@ checkLevel:
             bindVars.push_back( _user_name );
             bindVars.push_back( myZone );
             int status = cmlGetIntegerValueFromSql(
-                    "select user_id from R_USER_MAIN where user_name=? and R_USER_MAIN.zone_name=?",
-                    &userId, bindVars, &icss );
+                             "select user_id from R_USER_MAIN where user_name=? and R_USER_MAIN.zone_name=?",
+                             &userId, bindVars, &icss );
             if ( status != 0 ) {
                 if ( status == CAT_NO_ROWS_FOUND ) {
                     return ERROR( CAT_INVALID_USER, "invalid user" );
@@ -11517,8 +11535,8 @@ checkLevel:
                     rodsLog( LOG_SQL, "chlModAccessControl SQL 4" );
                 }
                 int status = cmlExecuteNoAnswerSql(
-                              "delete from R_OBJT_ACCESS where user_id=? and object_id=?",
-                              &icss );
+                                 "delete from R_OBJT_ACCESS where user_id=? and object_id=?",
+                                 &icss );
                 if ( status != 0 && status != CAT_SUCCESS_BUT_WITH_NO_INFO ) {
                     return ERROR( status, "delete failure" );
                 }
@@ -11534,8 +11552,8 @@ checkLevel:
                         rodsLog( LOG_SQL, "chlModAccessControl SQL 5" );
                     }
                     int status = cmlExecuteNoAnswerSql(
-                                  "insert into R_OBJT_ACCESS (object_id, user_id, access_type_id, create_ts, modify_ts)  values (?, ?, (select token_id from R_TOKN_MAIN where token_namespace = 'access_type' and token_name = ?), ?, ?)",
-                                  &icss );
+                                     "insert into R_OBJT_ACCESS (object_id, user_id, access_type_id, create_ts, modify_ts)  values (?, ?, (select token_id from R_TOKN_MAIN where token_namespace = 'access_type' and token_name = ?), ?, ?)",
+                                     &icss );
                     if ( status != 0 ) {
                         _rollback( "chlModAccessControl" );
                         return ERROR( status, "insert failure" );
@@ -11567,8 +11585,8 @@ checkLevel:
                 rodsLog( LOG_SQL, "chlModAccessControl SQL 6" );
             }
             int status =  cmlExecuteNoAnswerSql(
-                          "delete from R_OBJT_ACCESS where user_id=? and object_id=?",
-                          &icss );
+                              "delete from R_OBJT_ACCESS where user_id=? and object_id=?",
+                              &icss );
             if ( status != 0 && status != CAT_SUCCESS_BUT_WITH_NO_INFO ) {
                 _rollback( "chlModAccessControl" );
                 return ERROR( status, "delete failure" );
@@ -11576,10 +11594,10 @@ checkLevel:
             if ( rmFlag ) { /* just removing */
                 /* Audit */
                 int status = cmlAudit5( AU_MOD_ACCESS_CONTROL_COLL,
-                                    collIdStr,
-                                    userIdStr,
-                                    myAccessLev,
-                                    &icss );
+                                        collIdStr,
+                                        userIdStr,
+                                        myAccessLev,
+                                        &icss );
                 if ( status != 0 ) {
                     rodsLog( LOG_NOTICE,
                              "chlModAccessControl cmlAudit5 failure %d",
@@ -11720,7 +11738,9 @@ checkLevel:
             rodsLog( LOG_SQL, "chlModAccessControl SQL 8" );
         }
         status =  cmlExecuteNoAnswerSql(
-#if (defined ORA_ICAT || defined MY_ICAT)
+#if defined ORA_ICAT
+                      "delete from R_OBJT_ACCESS where user_id=? and object_id = ANY (select data_id from R_DATA_MAIN where coll_id in (select coll_id from R_COLL_MAIN where coll_name = ? or coll_name like ? ESCAPE '\\'))",
+#elif defined MY_ICAT
                       "delete from R_OBJT_ACCESS where user_id=? and object_id = ANY (select data_id from R_DATA_MAIN where coll_id in (select coll_id from R_COLL_MAIN where coll_name = ? or coll_name like ?))",
 #else
                       /*  Use the temporary table to greatly speed up this operation
@@ -11748,7 +11768,9 @@ checkLevel:
             rodsLog( LOG_SQL, "chlModAccessControl SQL 9" );
         }
         status =  cmlExecuteNoAnswerSql(
-#if (defined ORA_ICAT || defined MY_ICAT)
+#if defined ORA_ICAT
+                      "delete from R_OBJT_ACCESS where user_id=? and object_id = ANY (select coll_id from R_COLL_MAIN where coll_name = ? or coll_name like ? ESCAPE '\\')",
+#elif defined MY_ICAT
                       "delete from R_OBJT_ACCESS where user_id=? and object_id = ANY (select coll_id from R_COLL_MAIN where coll_name = ? or coll_name like ?)",
 #else
                       "delete from R_OBJT_ACCESS where user_id=? and object_id = ANY(ARRAY(select coll_id from R_MOD_ACCESS_TEMP1 where coll_name = ? or coll_name like ?))",
@@ -11792,7 +11814,7 @@ checkLevel:
 #if ORA_ICAT
         /* For Oracle cast is to integer, for Postgres to bigint,for MySQL no cast*/
         status =  cmlExecuteNoAnswerSql(
-                      "insert into R_OBJT_ACCESS (object_id, user_id, access_type_id, create_ts, modify_ts)  (select distinct data_id, cast(? as integer), (select token_id from R_TOKN_MAIN where token_namespace = 'access_type' and token_name = ?), ?, ? from R_DATA_MAIN where coll_id in (select coll_id from R_COLL_MAIN where coll_name = ? or coll_name like ?))",
+                      "insert into R_OBJT_ACCESS (object_id, user_id, access_type_id, create_ts, modify_ts)  (select distinct data_id, cast(? as integer), (select token_id from R_TOKN_MAIN where token_namespace = 'access_type' and token_name = ?), ?, ? from R_DATA_MAIN where coll_id in (select coll_id from R_COLL_MAIN where coll_name = ? or coll_name like ? ESCAPE '\\'))",
                       &icss );
 #elif MY_ICAT
         status =  cmlExecuteNoAnswerSql(
@@ -11826,7 +11848,7 @@ checkLevel:
 #if ORA_ICAT
         /* For Oracle cast is to integer, for Postgres to bigint,for MySQL no cast*/
         status =  cmlExecuteNoAnswerSql(
-                      "insert into R_OBJT_ACCESS (object_id, user_id, access_type_id, create_ts, modify_ts)  (select distinct coll_id, cast(? as integer), (select token_id from R_TOKN_MAIN where token_namespace = 'access_type' and token_name = ?), ?, ? from R_COLL_MAIN where coll_name = ? or coll_name like ?)",
+                      "insert into R_OBJT_ACCESS (object_id, user_id, access_type_id, create_ts, modify_ts)  (select distinct coll_id, cast(? as integer), (select token_id from R_TOKN_MAIN where token_namespace = 'access_type' and token_name = ?), ?, ? from R_COLL_MAIN where coll_name = ? or coll_name like ? ESCAPE '\\')",
                       &icss );
 #elif MY_ICAT
         status =  cmlExecuteNoAnswerSql(
@@ -13579,18 +13601,19 @@ checkLevel:
         const int remove_status = removeAVUs();
         int commit_status = 0;
 
-        if (   remove_status == CAT_SUCCESS_BUT_WITH_NO_INFO
-            || remove_status == 0 ) {
+        if ( remove_status == CAT_SUCCESS_BUT_WITH_NO_INFO
+                || remove_status == 0 ) {
             commit_status = cmlExecuteNoAnswerSql( "commit", &icss );
         }
         else {
             return ERROR( remove_status, "removeAVUs failed" );
         }
 
-        if (   commit_status == CAT_SUCCESS_BUT_WITH_NO_INFO
-            || commit_status == 0 ) {
+        if ( commit_status == CAT_SUCCESS_BUT_WITH_NO_INFO
+                || commit_status == 0 ) {
             return SUCCESS();
-        } else {
+        }
+        else {
             return ERROR( commit_status, "commit failed" );
         }
 

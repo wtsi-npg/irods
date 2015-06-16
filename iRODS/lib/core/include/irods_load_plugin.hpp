@@ -34,17 +34,17 @@ namespace irods {
 
         rodsEnv env;
         int status = getRodsEnv( &env );
-        if( !status ) {
-            if( strlen( env.irodsPluginHome ) > 0 ) {
+        if ( !status ) {
+            if ( strlen( env.irodsPluginHome ) > 0 ) {
                 plugin_home = env.irodsPluginHome;
             }
-               
+
         }
 
         plugin_home += _type;
 
         try {
-            if( !fs::exists( plugin_home ) ) {
+            if ( !fs::exists( plugin_home ) ) {
                 std::string msg( "does not exist [" );
                 msg += plugin_home;
                 msg += "]";
@@ -53,10 +53,10 @@ namespace irods {
                            msg );
 
             }
-            
+
             fs::path p = fs::canonical( plugin_home );
 
-            if( fs::path::preferred_separator != *plugin_home.rbegin() ) {
+            if ( fs::path::preferred_separator != *plugin_home.rbegin() ) {
                 plugin_home += fs::path::preferred_separator;
             }
 
@@ -69,7 +69,8 @@ namespace irods {
 
             return SUCCESS();
 
-        } catch ( const fs::filesystem_error& _e ) {
+        }
+        catch ( const fs::filesystem_error& _e ) {
             std::string msg( "does not exist [" );
             msg += plugin_home;
             msg += "]";
@@ -163,7 +164,7 @@ namespace irods {
 
         // =-=-=-=-=-=-=-
         // try to open the shared object
-        void*  handle  = dlopen( so_name.c_str(), RTLD_LAZY );
+        void*  handle  = dlopen( so_name.c_str(), RTLD_LAZY | RTLD_LOCAL);
         if ( !handle ) {
             std::stringstream msg;
             msg << "failed to open shared object file [" << so_name
@@ -259,6 +260,3 @@ namespace irods {
 
 
 #endif // __IRODS_LOAD_PLUGIN_HPP__
-
-
-

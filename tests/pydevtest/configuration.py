@@ -8,13 +8,18 @@ USE_SSL = False
 ICAT_HOSTNAME = socket.gethostname()
 PREEXISTING_ADMIN_PASSWORD = 'rods'
 
+
+# TODO: allow for arbitrary number of remote zones
+
 class FEDERATION(object):
-    LOCAL_IRODS_VERSION = (4,1,0)
+    LOCAL_IRODS_VERSION = (4, 1, 0)
+    REMOTE_IRODS_VERSION = (4, 1, 0)
     RODSUSER_NAME_PASSWORD_LIST = [('zonehopper', '53CR37')]
     RODSADMIN_NAME_PASSWORD_LIST = []
     IRODS_DIR = '/var/lib/irods/iRODS'
     LOCAL_ZONE = 'dev'
     REMOTE_ZONE = '403'
+    REMOTE_HOST = 'irods403'
     REMOTE_RESOURCE = 'demoResc'
     REMOTE_VAULT = '/var/lib/irods/iRODS/Vault'
     TEST_FILE_SIZE = 4096   # 4MB

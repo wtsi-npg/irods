@@ -389,7 +389,7 @@ Res* evaluateActions( Node *expr, Node *reco, int applyAll, ruleExecInfo_t *rei,
                     for ( i2 = reco->degree - 1 < i ? reco->degree - 1 : i; i2 >= 0; i2-- ) {
 #ifndef DEBUG
                         if ( reTestFlag > 0 ) {
-                            if ( reTestFlag == COMMAND_TEST_1 || COMMAND_TEST_MSI ) {
+                            if ( reTestFlag == COMMAND_TEST_1 || reTestFlag == COMMAND_TEST_MSI ) {
                                 fprintf( stdout, "***RollingBack\n" );
                             }
                             else if ( reTestFlag == HTML_TEST_1 ) {
@@ -659,7 +659,7 @@ Res* evaluateFunction3( Node *appRes, int applyAll, Node *node, Env *env, ruleEx
         reDebug( EXEC_ACTION_END, -4, &param, node, env, rei );
     }
 
-    if ( getNodeType( res ) == N_ERROR ) {
+    if ( getNodeType( res ) == N_ERROR && strcmp( fn, "msiExecCmd" ) != 0 ) {
         RETURN;
     }
 
@@ -953,7 +953,7 @@ Res* execMicroService3( char *msName, Res **args, unsigned int nargs, Node *node
     }
 
     if ( ii < 0 ) {
-        if(strcmp(msName, "msiExecCmd") == 0) {
+        if ( strcmp( msName, "msiExecCmd" ) == 0 ) {
             for ( i = 0; i < numOfStrArgs; i++ ) {
                 if ( myArgv[i] != NULL ) {
                     res = convertMsParamToRes( myArgv[i], r );

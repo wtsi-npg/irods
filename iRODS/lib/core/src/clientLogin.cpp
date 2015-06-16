@@ -61,8 +61,6 @@ void setSessionSignatureClientside( char* _sig ) {
 
 
 int printError( rcComm_t *Conn, int status, char *routineName ) {
-    char *mySubName;
-    char *myName;
     rError_t *Err;
     rErrMsg_t *ErrMsg;
     int i, len;
@@ -76,9 +74,11 @@ int printError( rcComm_t *Conn, int status, char *routineName ) {
             }
         }
     }
-    myName = rodsErrorName( status, &mySubName );
+    char *mySubName = NULL;
+    const char *myName = rodsErrorName( status, &mySubName );
     fprintf( stderr, "%s failed with error %d %s %s\n", routineName,
              status, myName, mySubName );
+    free( mySubName );
 
     return 0;
 }
@@ -142,7 +142,7 @@ int clientLoginPam( rcComm_t* Conn,
         return status;
     }
     memset( myPassword, 0, sizeof( myPassword ) );
-    rodsLog( LOG_NOTICE, "iRODS password set up for i-command use: %s\n",
+    rodsLog( LOG_NOTICE, "iRODS password set up for iCommand use: %s\n",
              pamAuthReqOut->irodsPamPassword );
 
     /* can turn off SSL now. Have to request the server to do so.

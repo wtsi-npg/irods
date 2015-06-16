@@ -31,16 +31,12 @@ use File::Basename;
 use File::Spec;
 $scriptfullpath = abs_path(__FILE__);
 $scripttoplevel = dirname(dirname(dirname(dirname(dirname($scriptfullpath)))));
-require "$scripttoplevel/iRODS/scripts/perl/utils_platform.pl";
 require "$scripttoplevel/iRODS/scripts/perl/utils_config.pl";
-if( -e "/etc/irods/server_config.json" )
-{
-        $configDir = "/etc/irods";
-}
-else
-{
-        $configDir = File::Spec->catdir( "$scripttoplevel", "iRODS", "config" );
-}
+
+$configDir = ( -e "/etc/irods/server_config.json" ) ?
+    "/etc/irods" :
+    File::Spec->catdir( "$scripttoplevel", "iRODS", "config" );
+
 $logDir = File::Spec->catdir( "$scripttoplevel", "iRODS", "server", "log" );
 
 
@@ -53,7 +49,6 @@ $myZone=substr($cmdStdout, $ix+1);
 $myZone =~ s/^\s+//;
 
 $F1="TestFile1";
-$F2="TestFile2";
 $Resc="demoResc";
 $HOME="/$myZone/home/rods";
 $Resc2="resc2";
@@ -67,6 +62,30 @@ $tmpAuthFile="/tmp/testAuthFile.12343598";
 $USER="rods";
 $ACCESS_GOOD="'read metadata'";
 $ACCESS_BAD="'bad access'";
+
+
+########################################################################
+#
+# Load configuration files
+#
+
+# binary installation
+if ( -e "$scripttoplevel/packaging/binary_installation.flag" ) {
+    load_server_config("/etc/irods/server_config.json");
+    if ( -e "/etc/irods/database_config.json" ) {
+        load_database_config("/etc/irods/database_config.json");
+    }
+}
+# run-in-place
+else {
+    load_server_config("$scripttoplevel/iRODS/server/config/server_config.json");
+    if ( -e "$scripttoplevel/iRODS/server/config/database_config.json" ) {
+        load_database_config("$scripttoplevel/iRODS/server/config/database_config.json");
+    }
+}
+
+# load version information
+load_irods_version_file("$scripttoplevel/VERSION.json");
 
 
 # run a command
@@ -215,7 +234,9 @@ runCmd(0, "test_chl rm $HOME/$F1 999999"); # 999999 is taken as -1
 # server style login/auth (altho actually redundant with other tests)
 runCmd(1, "iadmin rmuser $User2");
 runCmd(0, "iadmin mkuser $User2 rodsuser");
+runCmd(0,"sleep 1");
 runCmd(0, "iadmin moduser $User2 password 123");
+runCmd(0,"sleep 1");
 #$ENV{'IRODS_USER_NAME'}=$User2;
 runCmd(0, "test_chl login $User2 123 $IRODS_ADMIN_PASSWORD");
 #delete $ENV{'IRODS_USER_NAME'};
@@ -292,7 +313,7 @@ chomp($temp2);
 $ix2=index($temp2,"clientPrivLevel=$LOCAL_USER_AUTH");
 if ($ix2 < 0) {
     printf("stdout is:$temp2:");
-    die("For checkauth on $user2 the clientPrivLevel is not $LOCAL_USER_AUTH");
+    die("For checkauth on $User2 the clientPrivLevel is not $LOCAL_USER_AUTH");
 }
 
 # modColl test

@@ -244,10 +244,13 @@ getDataObjUtil( rcComm_t *conn, char *srcPath, char *targPath,
     if ( status >= 0 ) {
         /* old objState use numCopies in place of dataMode.
          * Just a sanity check */
-        myChmod( targPath, dataMode );
+        if ( strcmp( targPath, STDOUT_FILE_NAME ) ) {
+            myChmod( targPath, dataMode );
+        }
         if ( rodsArgs->verbose == True ) {
             ( void ) gettimeofday( &endTime, ( struct timezone * )0 );
-            printTiming( conn, dataObjOprInp->objPath, srcSize, targPath,
+            printTiming( conn, dataObjOprInp->objPath, srcSize,
+                         strcmp( targPath, STDOUT_FILE_NAME ) ? targPath : NULL,
                          &startTime, &endTime );
         }
         if ( gGuiProgressCB != NULL ) {
@@ -279,7 +282,7 @@ initCondForGet( rcComm_t *conn, rodsArguments_t *rodsArgs,
     dataObjOprInp->oprType = GET_OPR;
 
     if ( rodsArgs->kv_pass ) {
-        addKeyVal( 
+        addKeyVal(
             &dataObjOprInp->condInput,
             KEY_VALUE_PASSTHROUGH_KW,
             rodsArgs->kv_pass_string );

@@ -149,17 +149,18 @@ rsDataObjRepl( rsComm_t *rsComm, dataObjInp_t *dataObjInp,
     // performing a local replication
     *transStat = ( transferStat_t* )malloc( sizeof( transferStat_t ) );
     memset( *transStat, 0, sizeof( transferStat_t ) );
+
     // =-=-=-=-=-=-=-
     // JMC - backport 4609
     lockType = getValByKey( &dataObjInp->condInput, LOCK_TYPE_KW );
     if ( lockType != NULL ) {
         lockFd = irods::server_api_call(
-                         DATA_OBJ_LOCK_AN,
-                         rsComm,
-                         dataObjInp,
-                         NULL,
-                         ( void** ) NULL,
-                         NULL );
+                     DATA_OBJ_LOCK_AN,
+                     rsComm,
+                     dataObjInp,
+                     NULL,
+                     ( void** ) NULL,
+                     NULL );
         if ( lockFd >= 0 ) {
             /* rm it so it won't be done again causing deadlock */
             rmKeyVal( &dataObjInp->condInput, LOCK_TYPE_KW );
@@ -265,7 +266,7 @@ _rsDataObjRepl(
         rodsLog( LOG_NOTICE, "%s - Failed to sort objects for replication.", __FUNCTION__ );
         return status;
     }
-    
+
     // =-=-=-=-=-=-=-
     // if a resc is specified and it has a stale copy then we should just treat this as an update
     // also consider the 'update' keyword as that might also have some bearing on updates
@@ -605,7 +606,7 @@ _rsDataObjReplS(
     irods::error ret = irods::get_advanced_setting<int>(
                            irods::CFG_MAX_SIZE_FOR_SINGLE_BUFFER,
                            single_buff_sz );
-    if( !ret.ok() ) {
+    if ( !ret.ok() ) {
         irods::log( PASS( ret ) );
         return ret.code();
     }
@@ -650,7 +651,9 @@ _rsDataObjReplS(
             destDataObjInfo->dataSize = myDestDataObjInfo->dataSize;
         }
     }
+
     freeDataObjInfo( myDestDataObjInfo );
+    clearKeyVal( &dataObjCloseInp.condInput );
 
     if ( status < 0 ) {
         return status;
@@ -836,7 +839,7 @@ dataObjOpenForRepl(
     irods::error ret = irods::get_advanced_setting<int>(
                            irods::CFG_MAX_SIZE_FOR_SINGLE_BUFFER,
                            single_buff_sz );
-    if( !ret.ok() ) {
+    if ( !ret.ok() ) {
         irods::log( PASS( ret ) );
         freeDataObjInfo( srcDataObjInfo );
         return ret.code();
@@ -895,9 +898,9 @@ dataObjOpenForRepl(
             rsComm,
             myDestDataObjInfo ) );
     ret = fileNotify(
-            rsComm,
-            file_obj,
-            irods::WRITE_OPERATION );
+              rsComm,
+              file_obj,
+              irods::WRITE_OPERATION );
     if ( !ret.ok() ) {
         std::stringstream msg;
         msg << "Failed to signal the resource that the data object \"";
@@ -1226,7 +1229,7 @@ l3FileSync( rsComm_t * rsComm, int srcL1descInx, int destL1descInx ) {
         if ( status == 0 && tmpDataObjInfo.dataId != destDataObjInfo->dataId ) {
             /* someone is using it */
             char tmp_str[ MAX_NAME_LEN ];
-            snprintf( tmp_str, MAX_NAME_LEN, "%s.%-d", destDataObjInfo->filePath, ( int ) random() );
+            snprintf( tmp_str, MAX_NAME_LEN, "%s.%-u", destDataObjInfo->filePath, getRandomInt() );
             strncpy( destDataObjInfo->filePath, tmp_str, MAX_NAME_LEN );
         }
     }

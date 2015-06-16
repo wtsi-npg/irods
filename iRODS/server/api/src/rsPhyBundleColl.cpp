@@ -83,7 +83,8 @@ rsPhyBundleColl( rsComm_t*                 rsComm,
         // api calls, etc.
         addKeyVal( &phyBundleCollInp->condInput, RESC_HIER_STR_KW, hier.c_str() );
 
-    } else {
+    }
+    else {
         hier = hier_kw;
 
     }
@@ -670,7 +671,6 @@ int
 createPhyBundleDataObj( rsComm_t *rsComm, char *collection,
                         const std::string& _resc_name, const char* rescHier, dataObjInp_t *dataObjInp, // should be able to only use rescHier
                         char* dataType ) { // JMC - backport 4658
-    int myRanNum;
     int l1descInx;
     int status;
 
@@ -692,9 +692,8 @@ createPhyBundleDataObj( rsComm_t *rsComm, char *collection,
         int loopCnt = 0;
         bzero( dataObjInp, sizeof( dataObjInp_t ) );
         while ( 1 ) {
-            myRanNum = random();
             status = rsMkBundlePath( rsComm, collection, dataObjInp->objPath,
-                                     myRanNum );
+                                     getRandomInt() );
             if ( status < 0 ) {
                 rodsLog( LOG_ERROR,
                          "createPhyBundleFile: getPhyBundlePath err for %s.stat = %d",
@@ -801,7 +800,7 @@ rsMkBundlePath( rsComm_t *rsComm, char *collection, char *bundlePath,
     *bundlePathPtr = '\0';
     rstrcpy( startBundlePath, bundlePath, MAX_NAME_LEN );
 
-    snprintf( bundlePathPtr, MAX_NAME_LEN, "bundle/%s.%d", tmpStr, myRanNum );
+    snprintf( bundlePathPtr, MAX_NAME_LEN, "bundle/%s.%u", tmpStr, ( unsigned int )myRanNum );
 
     if ( ( status = splitPathByKey( bundlePath, destBundleColl, MAX_NAME_LEN, myFile, MAX_NAME_LEN, '/' ) )
             < 0 ) {

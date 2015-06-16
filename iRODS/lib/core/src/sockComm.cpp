@@ -310,7 +310,7 @@ sockOpenForInConn( rsComm_t *rsComm, int *portNum, char **addr, int proto ) {
     }
 
     mySockAddr.sin_family = AF_INET;
-    mySockAddr.sin_addr.s_addr = htonl(INADDR_ANY);
+    mySockAddr.sin_addr.s_addr = htonl( INADDR_ANY );
 
     /* if portNum is <= 0 and server_port_range_start is set in
      * server_config.json pick a port in the range.
@@ -351,7 +351,7 @@ sockOpenForInConn( rsComm_t *rsComm, int *portNum, char **addr, int proto ) {
         svr_port_range_end = svr_port_range_end < 65535 ? svr_port_range_end : 65535;
         int portRangeCount = svr_port_range_end - svr_port_range_start + 1;
 
-        int myPortNum = svr_port_range_start + random() % portRangeCount;
+        int myPortNum = svr_port_range_start + getRandomInt() % portRangeCount;
         int bindCnt = 0;
         while ( bindCnt < portRangeCount ) {
             if ( myPortNum > svr_port_range_end ) {
@@ -856,6 +856,7 @@ connectToRhost( rcComm_t *conn, int connectCnt, int reconnFlag ) {
         std::string results;
         ret = irods::client_server_negotiation_for_client(
                   net_obj,
+                  conn->host,
                   results );
         if ( !ret.ok() ) {
             return ret.code();
@@ -1692,20 +1693,16 @@ rcReconnect( rcComm_t **conn, char *newHost, rodsEnv *myEnv, int reconnFlag ) {
 
 int
 mySockClose( int sock ) {
-    int status;
-#ifdef _WIN32
-    status = closesocket( sock );
-#else   /* _WIN32 */
+    // A socket write immediately followed by a socket close can cause the
+    // receiver to get errno 104 (reset by peer) and not receive the message,
+    // even with SO_LINGER. Calling shutdown prevents this behavior.
 #if defined(solaris_platform) || defined(linux_platform) || defined(osx_platform)
-    /* For reason I do not completely understand, if I do a socket write and
-     * then a socket close immediately, the receiver at the other end can
-     * get a errno 104 (reset by peer) and does no always get the sent msg
-     * even though setting SO_LINGER. Making a shutdown call to shutdown
-     * the send channel seems to do the job.
-     */
     shutdown( sock, SHUT_WR );
 #endif
-    status = close( sock );
+
+#if defined(windows_platform)
+    return closesocket( sock );
+#else
+    return close( sock );
 #endif
-    return status;
 }

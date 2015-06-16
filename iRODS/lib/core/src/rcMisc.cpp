@@ -28,6 +28,7 @@
 #include <algorithm>
 #include <string>
 #include <openssl/md5.h>
+#include <openssl/rand.h>
 
 // =-=-=-=-=-=-=-
 #include "irods_virtual_path.hpp"
@@ -41,6 +42,9 @@
 #include <boost/lexical_cast.hpp>
 #include <boost/filesystem/operations.hpp>
 #include <boost/filesystem/convenience.hpp>
+#include <boost/format.hpp>
+#include <boost/random.hpp>
+#include <boost/generator_iterator.hpp>
 using namespace boost::filesystem;
 
 /* check with the input path is a valid path -
@@ -192,11 +196,11 @@ int
 parseUserName( const char * fullUserNameIn, char * userName, char * userZone ) {
     const char * octothorpePointer = strchr( fullUserNameIn, '#' );
     const std::string userNameString = octothorpePointer ?
-        std::string( fullUserNameIn, octothorpePointer - fullUserNameIn ) :
-        std::string( fullUserNameIn );
+                                       std::string( fullUserNameIn, octothorpePointer - fullUserNameIn ) :
+                                       std::string( fullUserNameIn );
     const std::string zoneNameString = octothorpePointer ?
-        std::string( octothorpePointer + 1 ) :
-        std::string();
+                                       std::string( octothorpePointer + 1 ) :
+                                       std::string();
     if ( zoneNameString.find( '#' ) != std::string::npos || userNameString.size() >= NAME_LEN || zoneNameString.size() >= NAME_LEN ) {
         if ( userName != NULL ) {
             userName[0] = '\0';
@@ -1367,114 +1371,15 @@ getUnixGroupname( int gid, char *groupname, int groupname_len ) {
 
 /*
    Return 64 semi-random bytes terminated by a null.
-
-   This is designed to be very quick and sufficiently pseudo-random for
-   the context in which it is used (a challenge in the challenge -
-   response protocol).
-
-   If /dev/urandom is available (as is usually the case on Linux/Unix
-   hosts) we now use that, as it will be normally be sufficiently fast
-   and has much entropy (very pseudo-random).
-
-   Otherwise, this algorithm creates sufficient pseudo-randomness as
-   described below.  There are about 20 bits of entropy from the
-   microsecond clock, plus a few more via the pid, and more from the
-   seconds value.
-
-   By using the PID and a static counter as part of this, we're
-   guaranteed that one or the other of those will vary each time, even
-   if called repeatedly (the microsecond time value will vary too).
-
-   The use of the epoch seconds value (a large number that increments
-   each second), also helps prevent returning the same set of
-   pseudo-random bytes over time.
-
-   MD5 is a quick and handy way to fill out the 64 bytes using the input
-   values, in a manner that is very unlikely to repeat.
-
-   The entropy of the seeds, in combination with these other features,
-   makes the probability of repeating a particular pattern on the order
-   of one out of many billions.  If /dev/urandom is available, the odds
-   are even smaller.
-
  */
 int get64RandomBytes( char *buf ) {
-    MD5_CTX context;
-    char buffer[65]; /* each digest is 16 bytes, 4 of them */
-    int ints[30];
-    int pid;
-#ifdef windows_platform
-    SYSTEMTIME tv;
-#else
-    struct timeval tv;
-#endif
-    static int count = 12348;
-    int i;
-
-#ifndef windows_platform
-    /*
-       Use /dev/urandom instead, if available
-     */
-    int uran_fd, rval;
-    uran_fd = open( "/dev/urandom", O_RDONLY );
-    if ( uran_fd > 0 ) {
-        rval = read( uran_fd, buffer, 64 );
-        close( uran_fd );
-        if ( rval == 64 ) {
-            for ( i = 0; i < 64; i++ ) {
-                if ( buffer[i] == '\0' ) {
-                    buffer[i]++;  /* make sure no nulls before end of 'string'*/
-                }
-            }
-            buffer[64] = '\0';
-            strncpy( buf, buffer, 65 );
-            return 0;
+    getRandomBytes( buf, 64 );
+    for ( int i = 0; i < 64; i++ ) {
+        if ( buf[i] == '\0' ) {
+            buf[i] = 1;  /* make sure no nulls before end of 'string'*/
         }
     }
-#endif
-
-#ifdef windows_platform
-    GetSystemTime( &tv );
-#else
-    gettimeofday( &tv, 0 );
-#endif
-    pid = getpid();
-    count++;
-
-    ints[0] = 12349994;
-    ints[1] = count;
-#ifdef windows_platform
-    ints[2] = ( int )tv.wSecond;
-    ints[5] = ( int )tv.wSecond;
-#else
-    ints[2] = tv.tv_usec;
-    ints[5] = tv.tv_sec;
-#endif
-    MD5_Init( &context );
-    MD5_Update( &context, ( unsigned char* )&ints[0], 100 );
-    MD5_Final( ( unsigned char* )buffer, &context );
-
-    ints[0] = pid;
-    ints[4] = ( int )buffer[10];
-    MD5_Init( &context );
-    MD5_Update( &context, ( unsigned char * )&ints[0], 100 );
-    MD5_Final( ( unsigned char* )( buffer + 16 ), &context );
-
-    MD5_Init( &context );
-    MD5_Update( &context, ( unsigned char* )&ints[0], 100 );
-    MD5_Final( ( unsigned char* )( buffer + 32 ), &context );
-
-    MD5_Init( &context );
-    MD5_Update( &context, ( unsigned char* )buffer, 40 );
-    MD5_Final( ( unsigned char* )( buffer + 48 ), &context );
-
-    for ( i = 0; i < 64; i++ ) {
-        if ( buffer[i] == '\0' ) {
-            buffer[i]++;  /* make sure no nulls before end of 'string'*/
-        }
-    }
-    buffer[64] = '\0';
-    strncpy( buf, buffer, 65 );
+    buf[64] = '\0';
     return 0;
 }
 
@@ -2452,7 +2357,7 @@ appendRandomToPath( char * trashPath ) {
         return SYS_INVALID_FILE_PATH;
     }
     tmpPtr = trashPath + len;
-    sprintf( tmpPtr, ".%d", ( uint ) random() );
+    sprintf( tmpPtr, ".%u", getRandomInt() );
 
     return 0;
 }
@@ -3221,58 +3126,28 @@ printGenQueryOut( FILE * fd, char * format, char * hint, genQueryOut_t * genQuer
         }
     }
 
-    for ( i = 0; i < genQueryOut->rowCnt; i++ ) {
-        if ( format == NULL || strlen( format ) == 0 ) {
-            for ( j = 0; j < n; j++ ) {
-                fprintf( fd, "%s = %s\n", cname[j], &v[j]->value[v[j]->len * i] );
+    try {
+        for ( i = 0; i < genQueryOut->rowCnt; i++ ) {
+            if ( format == NULL || strlen( format ) == 0 ) {
+                for ( j = 0; j < n; j++ ) {
+                    fprintf( fd, "%s = %s\n", cname[j], &v[j]->value[v[j]->len * i] );
+                }
+                fprintf( fd, "------------------------------------------------------------\n" );
             }
-            fprintf( fd, "------------------------------------------------------------\n" );
+            else {
+                boost::format formatter( format );
+                for ( int j = 0; j < n; j++ ) {
+                    formatter % &v[j]->value[v[j]->len * i];
+                }
+                std::stringstream ss; ss << formatter;
+                fprintf( fd, "%s\n", ss.str().c_str() );
+            }
         }
-        else {
-            if ( n == 1 ) {
-                fprintf( fd, format, &v[0]->value[v[0]->len * i] );
-            }
-            else if ( n == 2 ) {
-                fprintf( fd, format, &v[0]->value[v[0]->len * i], &v[1]->value[v[1]->len * i] );
-            }
-            else if ( n == 3 ) {
-                fprintf( fd, format, &v[0]->value[v[0]->len * i], &v[1]->value[v[1]->len * i], &v[2]->value[v[2]->len * i] );
-            }
-            else if ( n == 4 ) {
-                fprintf( fd, format, &v[0]->value[v[0]->len * i], &v[1]->value[v[1]->len * i], &v[2]->value[v[2]->len * i], &v[3]->value[v[3]->len * i] );
-            }
-            else if ( n == 5 )
-                fprintf( fd, format, &v[0]->value[v[0]->len * i], &v[1]->value[v[1]->len * i], &v[2]->value[v[2]->len * i], &v[3]->value[v[3]->len * i],
-                         &v[4]->value[v[4]->len * i] );
-            else if ( n == 6 )
-                fprintf( fd, format, &v[0]->value[v[0]->len * i], &v[1]->value[v[1]->len * i], &v[2]->value[v[2]->len * i], &v[3]->value[v[3]->len * i],
-                         &v[4]->value[v[4]->len * i], &v[5]->value[v[5]->len * i] );
-            else if ( n == 7 )
-                fprintf( fd, format, &v[0]->value[v[0]->len * i], &v[1]->value[v[1]->len * i], &v[2]->value[v[2]->len * i], &v[3]->value[v[3]->len * i],
-                         &v[4]->value[v[4]->len * i], &v[5]->value[v[5]->len * i], &v[6]->value[v[6]->len * i] );
-            else if ( n == 8 )
-                fprintf( fd, format, &v[0]->value[v[0]->len * i], &v[1]->value[v[1]->len * i], &v[2]->value[v[2]->len * i], &v[3]->value[v[3]->len * i],
-                         &v[4]->value[v[4]->len * i], &v[5]->value[v[5]->len * i], &v[6]->value[v[6]->len * i], &v[7]->value[v[7]->len * i] );
-            else if ( n == 9 )
-                fprintf( fd, format, &v[0]->value[v[0]->len * i], &v[1]->value[v[1]->len * i], &v[2]->value[v[2]->len * i], &v[3]->value[v[3]->len * i],
-                         &v[4]->value[v[4]->len * i], &v[5]->value[v[5]->len * i], &v[6]->value[v[6]->len * i], &v[7]->value[v[7]->len * i],
-                         &v[8]->value[v[8]->len * i] );
-            else if ( n == 10 )
-                fprintf( fd, format, &v[0]->value[v[0]->len * i], &v[1]->value[v[1]->len * i], &v[2]->value[v[2]->len * i], &v[3]->value[v[3]->len * i],
-                         &v[4]->value[v[4]->len * i], &v[5]->value[v[5]->len * i], &v[6]->value[v[6]->len * i], &v[7]->value[v[7]->len * i],
-                         &v[8]->value[v[8]->len * i], &v[9]->value[v[9]->len * i] );
-            else if ( n == 11 )
-                fprintf( fd, format, &v[0]->value[v[0]->len * i], &v[1]->value[v[1]->len * i], &v[2]->value[v[2]->len * i], &v[3]->value[v[3]->len * i],
-                         &v[4]->value[v[4]->len * i], &v[5]->value[v[5]->len * i], &v[6]->value[v[6]->len * i], &v[7]->value[v[7]->len * i],
-                         &v[8]->value[v[8]->len * i], &v[9]->value[v[9]->len * i], &v[10]->value[v[10]->len * i] );
-            else if ( n == 12 )
-                fprintf( fd, format, &v[0]->value[v[0]->len * i], &v[1]->value[v[1]->len * i], &v[2]->value[v[2]->len * i], &v[3]->value[v[3]->len * i],
-                         &v[4]->value[v[4]->len * i], &v[5]->value[v[5]->len * i], &v[6]->value[v[6]->len * i], &v[7]->value[v[7]->len * i],
-                         &v[8]->value[v[8]->len * i], &v[9]->value[v[9]->len * i], &v[10]->value[v[10]->len * i], &v[11]->value[v[11]->len * i] );
-            fprintf( fd, "\n" );
-        }
-
     }
+    catch ( const boost::io::format_error& _e ) {
+        std::cerr << _e.what() << std::endl;
+    }
+
     return 0;
 }
 
@@ -3807,7 +3682,7 @@ parseHostAddrStr( char * hostAddr, rodsHostAddr_t * addr ) {
 
 /*
    Print some release information.
-   Used by the i-commands when printting the help text.
+   Used by the iCommands when printting the help text.
  */
 void
 printReleaseInfo( char * cmdName ) {
@@ -4723,4 +4598,21 @@ hasSymlinkInPath( const char * myPath ) {
         rstrcpy( lastCheckedPath, myPath, MAX_NAME_LEN );
     }
     return status;
+}
+
+void getRandomBytes( void * buf, int bytes ) {
+    if ( RAND_bytes( ( unsigned char * )buf, bytes ) != 1 ) {
+        static boost::mt19937 generator( std::time( 0 ) ^ ( getpid() << 16 ) );
+        static boost::uniform_int<unsigned char> byte_range( 0, 0xff );
+        static boost::variate_generator<boost::mt19937, boost::uniform_int<unsigned char> > random_byte( generator, byte_range );
+        for ( int i = 0; i < bytes; i++ ) {
+            ( ( unsigned char * ) buf )[i] = random_byte();
+        }
+    }
+}
+
+unsigned int getRandomInt() {
+    unsigned int random;
+    getRandomBytes( &random, sizeof( random ) );
+    return random;
 }

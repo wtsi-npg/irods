@@ -249,7 +249,7 @@ main( int argc, char **argv ) {
 
     if ( doingEnvFileUpdate ) {
         printf( "Those values will be added to your environment file (for use by\n" );
-        printf( "other i-commands) if the login succeeds.\n\n" );
+        printf( "other iCommands) if the login succeeds.\n\n" );
     }
 
     /*
@@ -390,21 +390,23 @@ main( int argc, char **argv ) {
                                session_file );
         if ( ret.ok() ) {
             json_error_t error;
-            json_t *current_contents = json_load_file(env_file.c_str(), 0, &error);
+            json_t *current_contents = json_load_file( env_file.c_str(), 0, &error );
 
             json_t *obj_to_dump = 0;
-            if (current_contents) {
+            if ( current_contents ) {
                 int ret = json_object_update( current_contents, json_env );
-                if (ret == 0) {
+                if ( ret == 0 ) {
                     obj_to_dump = current_contents;
-                } else {
+                }
+                else {
                     obj_to_dump = json_env;
                     std::cerr << "Failed to update " << env_file.c_str() << std::endl;
                     std::cerr << error.text << std::endl;
                     std::cerr << error.source << std::endl;
                     std::cerr << error.line << ":" << error.column << " " << error.position << std::endl;
                 }
-            } else {
+            }
+            else {
                 obj_to_dump = json_env;
             }
 
@@ -420,12 +422,12 @@ main( int argc, char **argv ) {
                     env_file.c_str() );
             }
 
-            if (current_contents) {
+            if ( current_contents ) {
                 json_decref( current_contents );
             }
         }
         else {
-            printf( "failed to get environment file - %ji\n", (intmax_t)ret.code() );
+            printf( "failed to get environment file - %ji\n", ( intmax_t )ret.code() );
         }
     } // if doingEnvFileUpdate
 
@@ -455,10 +457,10 @@ void usageTTL() {
     printf( "for only the number of hours you specify (up to a limit set by the\n" );
     printf( "administrator).  This is more secure, as this temporary password\n" );
     printf( "(not your permanent one) will be stored in the obfuscated\n" );
-    printf( "credential file (.irodsA) for use by the other i-commands.\n" );
+    printf( "credential file (.irodsA) for use by the other iCommands.\n" );
     printf( "\n" );
     printf( "When using PAM, iinit always generates a temporary iRODS password\n" );
-    printf( "for use by the other i-commands, using a time-limit set by the\n" );
+    printf( "for use by the other iCommands, using a time-limit set by the\n" );
     printf( "administrator (usually a few days).  With the --ttl option, you can\n" );
     printf( "specify how long this derived password will be valid, within the\n" );
     printf( "limits set by the administrator.\n" );

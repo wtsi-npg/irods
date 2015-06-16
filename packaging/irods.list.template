@@ -173,7 +173,12 @@ else
 fi
 
 if [ "$$PACKAGEUPGRADE" = "true" ] ; then
+  # detect current service account information
+  MYACCTNAME=`ls -l /etc/irods/core.re | awk '{print $$3}'`
+  MYGROUPNAME=`ls -l /etc/irods/core.re | awk '{print $$4}'`
 
+  # Stop server to prevent db plugin / irods server mismatch
+  HIDE_OUTPUT=`su - $$MYACCTNAME -c "$IRODS_HOME_DIR/iRODS/irodsctl stop"`
   # Upgrade
   echo "Upgrading Existing iRODS Installation"
   mkdir -p $IRODS_HOME_DIR
@@ -193,30 +198,12 @@ if [ "$$PACKAGEUPGRADE" = "true" ] ; then
 
   # service account information
   SERVICE_ACCOUNT_CONFIG_FILE="/etc/irods/service_account.config"
-  # detect current service account information
-  MYACCTNAME=`ls -l /etc/irods/core.re | awk '{print $$3}'`
-  MYGROUPNAME=`ls -l /etc/irods/core.re | awk '{print $$4}'`
   if [ ! -e $$SERVICE_ACCOUNT_CONFIG_FILE ] ; then
     # populate configuration file
     echo "IRODS_SERVICE_ACCOUNT_NAME=$$MYACCTNAME " > $$SERVICE_ACCOUNT_CONFIG_FILE
     echo "IRODS_SERVICE_GROUP_NAME=$$MYGROUPNAME " >> $$SERVICE_ACCOUNT_CONFIG_FILE
     chown $$MYACCTNAME:$$MYGROUPNAME $$SERVICE_ACCOUNT_CONFIG_FILE
   fi
-
-  # get database password from pre-4.1 installations
-  if [ "$$IRODSVERSION" \< "4.1.0" ] ; then
-    if [ -f /etc/irods/server.config ] ; then
-      OBFDBPASS=`grep "^DBPassword" /etc/irods/server.config | tail -n1 | awk '{print $$2}'`
-      DBKEY=`grep "^DBKey" /etc/irods/server.config | tail -n1 | awk '{print $$2}'`
-      UNOBFDBLINE=`su - $$MYACCTNAME -c "iadmin dspass \"$$OBFDBPASS\" \"$$DBKEY\""`
-      UNOBFDBPASS=`echo $$UNOBFDBLINE | awk -F ':' '{print $$2}'`
-      PLAINTEXT_FILENAME=$IRODS_HOME_DIR/plaintext_database_password.txt
-      echo $$UNOBFDBPASS > $$PLAINTEXT_FILENAME
-      chown $$MYACCTNAME:$$MYGROUPNAME $$PLAINTEXT_FILENAME
-      chmod 600 $$PLAINTEXT_FILENAME
-    fi
-  fi
-
 else
   # New Install
 
@@ -365,7 +352,6 @@ d 755 root root ${IRODS_HOME}/installLogs -
 d 755 root root ${IRODS_HOME}/scripts -
 f 755 root root ${IRODS_HOME}/scripts/find_irods_home.sh ./iRODS/scripts/find_irods_home.sh
 f 755 root root ${IRODS_HOME}/scripts/runperl ./iRODS/scripts/runperl
-f 755 root root ${IRODS_HOME}/scripts/izoneinfo.sh ./iRODS/scripts/izoneinfo.sh
 d 755 root root ${IRODS_HOME}/scripts/notify -
 f 644 root root ${IRODS_HOME}/scripts/notify/notify.config ./iRODS/scripts/notify/notify.config
 f 755 root root ${IRODS_HOME}/scripts/notify/notify.pl ./iRODS/scripts/notify/notify.pl
@@ -377,17 +363,11 @@ f 644 root root ${IRODS_HOME}/scripts/python/get_db_schema_version.py ./iRODS/sc
 f 644 root root ${IRODS_HOME}/scripts/python/validate_json.py ./iRODS/scripts/python/validate_json.py
 f 644 root root ${IRODS_HOME}/scripts/python/kill_pid.py ./iRODS/scripts/python/kill_pid.py
 d 755 root root ${IRODS_HOME}/scripts/perl -
-f 644 root root ${IRODS_HOME}/scripts/perl/utils_file.pl ./iRODS/scripts/perl/utils_file.pl
-f 644 root root ${IRODS_HOME}/scripts/perl/utils_platform.pl ./iRODS/scripts/perl/utils_platform.pl
-f 644 root root ${IRODS_HOME}/scripts/perl/utils_paths.pl ./iRODS/scripts/perl/utils_paths.pl
 f 644 root root ${IRODS_HOME}/scripts/perl/irodsctl.pl ./iRODS/scripts/perl/irodsctl.pl
-f 644 root root ${IRODS_HOME}/scripts/perl/utils_prompt.pl ./iRODS/scripts/perl/utils_prompt.pl
 f 644 root root ${IRODS_HOME}/scripts/perl/irods_setup.pl ./iRODS/scripts/perl/irods_setup.pl
-f 644 root root ${IRODS_HOME}/scripts/perl/irods_get_config_dir.pl ./iRODS/scripts/perl/irods_get_config_dir.pl
-f 644 root root ${IRODS_HOME}/scripts/perl/irods_get_server_config_dir.pl ./iRODS/scripts/perl/irods_get_server_config_dir.pl
-f 644 root root ${IRODS_HOME}/scripts/perl/utils_print.pl ./iRODS/scripts/perl/utils_print.pl
+f 644 root root ${IRODS_HOME}/scripts/perl/utils_file.pl ./iRODS/scripts/perl/utils_file.pl
 f 644 root root ${IRODS_HOME}/scripts/perl/utils_config.pl ./iRODS/scripts/perl/utils_config.pl
-f 755 root root ${IRODS_HOME}/scripts/perl/joinlines.pl ./iRODS/scripts/perl/joinlines.pl
+f 644 root root ${IRODS_HOME}/scripts/perl/utils_print.pl ./iRODS/scripts/perl/utils_print.pl
 f 644 root root ${IRODS_HOME}/scripts/perl/README.txt ./iRODS/scripts/perl/README.txt
 f 644 root root ${IRODS_HOME}/scripts/README.txt ./iRODS/scripts/README.txt
 d 755 root root ${IRODS_HOME}/server -
@@ -418,15 +398,10 @@ d 755 root root ${IRODS_HOME}/server/re -
 d 755 root root ${IRODS_HOME}/server/re/include -
 f 644 root root ${IRODS_HOME}/server/re/include/reAction.hpp ./iRODS/server/re/include/reAction.hpp
 d 755 root root ${IRODS_HOME}/server/test -
-f 644 root root ${IRODS_HOME}/server/test/rdaToDataObj.ir ./iRODS/server/test/rdaToDataObj.ir
-f 644 root root ${IRODS_HOME}/server/test/rdaNoResult1.ir ./iRODS/server/test/rdaNoResult1.ir
-f 644 root root ${IRODS_HOME}/server/test/rdaNoResult2.ir ./iRODS/server/test/rdaNoResult2.ir
-f 644 root root ${IRODS_HOME}/server/test/rdaToStdout.ir ./iRODS/server/test/rdaToStdout.ir
 d 755 root root ${IRODS_HOME}/server/test/bin -
 f 755 root root ${IRODS_HOME}/server/test/bin/checkIcatLog.pl ./iRODS/server/test/bin/checkIcatLog.pl
 f 755 root root ${IRODS_HOME}/server/test/bin/dataTest.pl ./iRODS/server/test/bin/dataTest.pl
 f 755 root root ${IRODS_HOME}/server/test/bin/icatMiscTest.pl ./iRODS/server/test/bin/icatMiscTest.pl
-f 755 root root ${IRODS_HOME}/server/test/bin/icatTicketTest.pl ./iRODS/server/test/bin/icatTicketTest.pl
 f 755 root root ${IRODS_HOME}/server/test/bin/icatTest.pl ./iRODS/server/test/bin/icatTest.pl
 f 755 root root ${IRODS_HOME}/server/test/bin/moveTest.pl ./iRODS/server/test/bin/moveTest.pl
 f 755 root root ${IRODS_HOME}/server/test/bin/quotaTest.pl ./iRODS/server/test/bin/quotaTest.pl
@@ -446,13 +421,7 @@ d 755 root root ${IRODS_HOME}/clients -
 d 755 root root ${IRODS_HOME}/clients/icommands -
 d 755 root root ${IRODS_HOME}/clients/icommands/bin -
 
-f 644 root root ${IRODS_HOME}/clients/icommands/bin/chgCoreToCore1.ir    ./iRODS/clients/icommands/bin/chgCoreToCore1.ir
-f 644 root root ${IRODS_HOME}/clients/icommands/bin/chgCoreToCore2.ir    ./iRODS/clients/icommands/bin/chgCoreToCore2.ir
-f 644 root root ${IRODS_HOME}/clients/icommands/bin/chgCoreToOrig.ir     ./iRODS/clients/icommands/bin/chgCoreToOrig.ir
-f 644 root root ${IRODS_HOME}/clients/icommands/bin/delUnusedAVUs.ir     ./iRODS/clients/icommands/bin/delUnusedAVUs.ir
-f 644 root root ${IRODS_HOME}/clients/icommands/bin/runQuota.ir          ./iRODS/clients/icommands/bin/runQuota.ir
 f 644 root root ${IRODS_HOME}/clients/icommands/bin/runQuota.r           ./iRODS/clients/icommands/bin/runQuota.r
-f 644 root root ${IRODS_HOME}/clients/icommands/bin/showCore.ir          ./iRODS/clients/icommands/bin/showCore.ir
 
 # igetwild.sh - shouldn't have a binary with an extension, lintian complained it's not as future-proof
 f 755 root root /usr/bin/igetwild             ./iRODS/clients/icommands/bin/igetwild

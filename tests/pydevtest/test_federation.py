@@ -1,10 +1,10 @@
-from __future__ import print_function
 import sys
 if sys.version_info >= (2, 7):
     import unittest
 else:
     import unittest2 as unittest
 import os
+import time
 import shutil
 import commands
 from configuration import FEDERATION
@@ -307,6 +307,53 @@ class Test_ICommands(SessionsMixin, unittest.TestCase):
         test_session.assert_icommand(
             "irm -rf {remote_home_collection}/{dir_name}".format(**parameters))
         shutil.rmtree(dir_path)
+
+    @unittest.skipIf(FEDERATION.LOCAL_IRODS_VERSION < (4, 0, 3) or FEDERATION.REMOTE_IRODS_VERSION < (4, 0, 3), 'Fixed in 4.0.3')
+    def test_iget_from_bundle(self):
+        '''
+        WIP
+        '''
+
+        # make test dir
+        dir_name = 'iphybun_test_dir'
+        file_count = 20
+        file_size = 4
+        dir_path = os.path.join(self.local_test_dir_path, dir_name)
+        local_files = lib.make_large_local_tmp_dir(
+            dir_path, file_count, file_size)
+
+        # make session for existing *remote* user
+        user, password = 'rods', 'rods'
+        remote_session = lib.make_session_for_existing_user(
+            user, password, FEDERATION.REMOTE_HOST, FEDERATION.REMOTE_ZONE)
+
+        # test specific parameters
+        parameters = self.config.copy()
+        parameters['dir_path'] = dir_path
+        parameters['dir_name'] = dir_name
+        parameters['user_name'] = remote_session.username
+        parameters['remote_home_collection'] = "/{remote_zone}/home/{user_name}".format(
+            **parameters)
+
+        # put dir in remote collection
+        remote_session.assert_icommand(
+            "iput -fr {dir_path} {remote_home_collection}/".format(**parameters))
+
+        # new collection should be there
+        remote_session.assert_icommand(
+            "ils -L {remote_home_collection}/{dir_name}".format(**parameters), 'STDOUT_SINGLELINE', dir_name)
+
+        # list remote home collection
+        remote_session.assert_icommand(
+            "ils -L {remote_home_collection}".format(**parameters), 'STDOUT_SINGLELINE', parameters['remote_home_collection'])
+
+        # cleanup
+        remote_session.assert_icommand(
+            "irm -rf {remote_home_collection}/{dir_name}".format(**parameters))
+        shutil.rmtree(dir_path)
+
+        # close remote session
+        remote_session.__exit__()
 
     def test_irm_f(self):
         # pick session(s) for the test
@@ -741,6 +788,7 @@ class Test_Microservices(SessionsMixin, unittest.TestCase):
 
         super(Test_Microservices, self).tearDown()
 
+    @unittest.skipIf(FEDERATION.LOCAL_IRODS_VERSION < (4, 1, 0), 'Fixed in 4.1.0')
     def test_msirmcoll(self):
         # pick session(s) for the test
         test_session = self.user_sessions[0]
@@ -778,7 +826,8 @@ class Test_Microservices(SessionsMixin, unittest.TestCase):
             **parameters)
 
         # invoke msiRmColl() and checks that it returns 0
-        test_session.assert_icommand(irule_str, 'STDOUT_SINGLELINE', '0')
+        test_session.assert_icommand(
+            irule_str, 'STDOUT', '^0$', use_regex=True)
 
         # collection should be gone
         test_session.assert_icommand(
@@ -786,3 +835,64 @@ class Test_Microservices(SessionsMixin, unittest.TestCase):
 
         # cleanup
         shutil.rmtree(dir_path)
+
+    def test_delay_msiobjstat(self):
+        # pick session(s) for the test
+        test_session = self.user_sessions[0]
+
+        # make test file
+        filename = 'delay_msiobjstat_test_file'
+        filesize = self.config['test_file_size']
+        filepath = os.path.join(self.local_test_dir_path, filename)
+        lib.make_file(filepath, filesize)
+
+        # test specific parameters
+        parameters = self.config.copy()
+        parameters['filepath'] = filepath
+        parameters['filename'] = filename
+        parameters['user_name'] = test_session.username
+        parameters['remote_home_collection'] = "/{remote_zone}/home/{user_name}#{local_zone}".format(
+            **parameters)
+
+        # put file in remote collection
+        test_session.assert_icommand(
+            "iput -f {filepath} {remote_home_collection}/".format(**parameters))
+
+        # file should be there
+        test_session.assert_icommand(
+            "ils -L {remote_home_collection}/{filename}".format(**parameters), 'STDOUT_SINGLELINE', filename)
+
+        # prepare rule file
+        rule_file_path = os.path.join(
+            self.local_test_dir_path, 'delay_msiobjstat.r')
+        with open(rule_file_path, 'w') as rule_file:
+            rule_str = '''
+delay_msiobjstat {{
+    delay("<PLUSET>30s</PLUSET>") {{
+# Perform a stat on the object
+# Save the stat operation's error code as metadata associated with the object
+        *attr."delay_msiobjstat_return_value" = str(errorcode(msiObjStat(*obj,*out)));
+        msiAssociateKeyValuePairsToObj(*attr, *obj, "-d")
+    }}
+}}
+INPUT *obj="{remote_home_collection}/{filename}"
+OUTPUT ruleExecOut
+'''.format(**parameters)
+            rule_file.write(rule_str)
+
+        # invoke rule
+        test_session.assert_icommand('irule -F ' + rule_file_path)
+
+        # give it time to complete
+        time.sleep(60)
+
+        # look for AVU set by delay rule
+        attr = "delay_msiobjstat_return_value"
+        value = "0"
+        test_session.assert_icommand('imeta ls -d {remote_home_collection}/{filename}'.format(
+            **parameters), 'STDOUT_MULTILINE', ['attribute: ' + attr + '$', 'value: ' + value + '$'], use_regex=True)
+
+        # cleanup
+        test_session.assert_icommand(
+            "irm -f {remote_home_collection}/{filename}".format(**parameters))
+        os.remove(filepath)

@@ -450,8 +450,6 @@ doTicketOp( const char *arg1, const char *arg2, const char *arg3,
             const char *arg4, const char *arg5 ) {
     ticketAdminInp_t ticketAdminInp;
     int status;
-    char *mySubName;
-    char *myName;
 
     ticketAdminInp.arg1 = strdup( arg1 );
     ticketAdminInp.arg2 = strdup( arg2 );
@@ -481,9 +479,11 @@ doTicketOp( const char *arg1, const char *arg2, const char *arg3,
                 rodsLog( LOG_ERROR, "Level %d: %s", i, ErrMsg->msg );
             }
         }
-        myName = rodsErrorName( status, &mySubName );
+        char *mySubName = NULL;
+        const char *myName = rodsErrorName( status, &mySubName );
         rodsLog( LOG_ERROR, "rcTicketAdmin failed with error %d %s %s",
                  status, myName, mySubName );
+        free( mySubName );
     }
     return status;
 }
@@ -677,7 +677,6 @@ main( int argc, char **argv ) {
     rodsArguments_t myRodsArgs;
 
     char *mySubName;
-    char *myName;
 
     int argOffset;
 
@@ -809,7 +808,7 @@ main( int argc, char **argv ) {
                       myEnv.rodsZone, 0, &errMsg );
 
     if ( Conn == NULL ) {
-        myName = rodsErrorName( errMsg.status, &mySubName );
+        const char *myName = rodsErrorName( errMsg.status, &mySubName );
         rodsLog( LOG_ERROR, "rcConnect failure %s (%s) (%d) %s",
                  myName,
                  mySubName,
@@ -879,7 +878,7 @@ void usageMain() {
         "Tickets are another way to provide access to iRODS data-objects (files) or",
         "collections (directories or folders).  The 'iticket' command allows you",
         "to create, modify, list, and delete tickets.  When you create a ticket",
-        "it's 16 character string it given to you which you can share with others.",
+        "its 16 character string is given to you which you can share with others.",
         "This is less secure than normal iRODS login-based access control, but",
         "is useful in some situations.  See the 'ticket-based access' page on",
         "irods.org for more information.",
@@ -1024,6 +1023,20 @@ usage( char *subOpt ) {
                 printf( "%s\n", msgs[i] );
             }
         }
+
+        if ( strcmp( subOpt, "quit" ) == 0 ) {
+            char *msgs[] = {
+                " Exits the interactive mode",
+                ""
+            };
+            for ( i = 0;; i++ ) {
+                if ( strlen( msgs[i] ) == 0 ) {
+                    return 0;
+                }
+                printf( "%s\n", msgs[i] );
+            }
+        }
+
         printf( "Sorry, either %s is an invalid command or the help has not been written yet\n",
                 subOpt );
     }

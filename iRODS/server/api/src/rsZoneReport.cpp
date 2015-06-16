@@ -72,7 +72,7 @@ irods::error get_server_reports(
     rodsServerHost_t* icat_host = 0;
     char* zone_name = getLocalZoneName();
     int status = getRcatHost( MASTER_RCAT, zone_name, &icat_host );
-    if( status < 0 ) {
+    if ( status < 0 ) {
         return ERROR(
                    status,
                    "getRcatHost failed" );
@@ -96,7 +96,7 @@ irods::error get_server_reports(
         // skip the icat server as that is done separately
         // also skip null tmp_hosts resources ( coordinating )
         // skip local host
-        if( !tmp_host || tmp_host == icat_host || LOCAL_HOST == tmp_host->localFlag ) {
+        if ( !tmp_host || tmp_host == icat_host || LOCAL_HOST == tmp_host->localFlag ) {
             continue;
 
         }
@@ -104,7 +104,7 @@ irods::error get_server_reports(
         // skip previously reported servers
         std::map< rodsServerHost_t*, int >::iterator svr_itr =
             svr_reported.find( tmp_host );
-        if( svr_itr != svr_reported.end() ) {
+        if ( svr_itr != svr_reported.end() ) {
             continue;
 
         }
@@ -118,22 +118,23 @@ irods::error get_server_reports(
                        "failed in svrToSvrConnect" );
         }
 
-        bytesBuf_t* bbuf = 0;
+        bytesBuf_t* bbuf = NULL;
         status = rcServerReport(
                      tmp_host->conn,
                      &bbuf );
         if ( status < 0 ) {
             freeBBuf( bbuf );
+            bbuf = NULL;
             rodsLog(
                 LOG_ERROR,
                 "rcServerReport failed for [%s], status = %d",
-                "",
+                tmp_host->hostName->name,
                 status );
         }
 
         // possible null termination issues
-        std::string tmp_str;
-        tmp_str.assign( (char*)bbuf->buf, bbuf->len );
+        std::string tmp_str = bbuf ? std::string( ( char* )bbuf->buf, bbuf->len ) :
+                              std::string();
 
         json_error_t j_err;
         json_t* j_resc = json_loads(

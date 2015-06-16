@@ -29,6 +29,22 @@ fi
 # detect operating system
 DETECTEDOS=`$IRODS_HOME_DIR/packaging/find_os.sh`
 
+# get database password from pre-4.1 installations
+if [ "$UPGRADE_FLAG" == "true" ] ; then
+  MYACCTNAME=`ls -l /etc/irods/core.re | awk '{print $3}'`
+  if [ ! -f /etc/irods/database_config.json ] ; then
+    OBFDBPASS=`grep "^DBPassword" /etc/irods/server.config | tail -n1 | awk '{print $2}'`
+    DBKEY=`grep "^DBKey" /etc/irods/server.config | tail -n1 | awk '{print $2}'`
+    UNOBFDBLINE=`su - $MYACCTNAME -c "iadmin dspass \"$OBFDBPASS\" \"$DBKEY\""`
+    UNOBFDBPASS=`echo $UNOBFDBLINE | awk -F ':' '{print $2}'`
+    PLAINTEXT_FILENAME=$IRODS_HOME_DIR/plaintext_database_password.txt
+    echo $UNOBFDBPASS > $PLAINTEXT_FILENAME
+    chown $MYACCTNAME:$MYGROUPNAME $PLAINTEXT_FILENAME
+    chmod 600 $PLAINTEXT_FILENAME
+  fi
+fi
+
+
 # =-=-=-=-=-=-=-
 # add install time to VERSION.json file
 python -c "from __future__ import print_function; import datetime; import json; data=json.load(open('$IRODS_HOME_DIR/VERSION.json')); data['installation_time'] = datetime.datetime.utcnow().strftime( '%Y-%m-%dT%H:%M:%SZ' ); print(json.dumps(data, indent=4, sort_keys=True))" > $IRODS_HOME_DIR/VERSION.json.tmp
@@ -36,9 +52,7 @@ mv $IRODS_HOME_DIR/VERSION.json.tmp $IRODS_HOME_DIR/VERSION.json
 
 # =-=-=-=-=-=-=-
 # clean up any stray iRODS files in /tmp which will cause problems
-if [ -f /tmp/irodsServer.* ] ; then
-    rm /tmp/irodsServer.*
-fi
+rm -f /tmp/irodsServer.*
 
 # =-=-=-=-=-=-=-
 # clean up any stray iRODS shared memory mutex files
@@ -179,6 +193,7 @@ fi
 # =-=-=-=-=-=-=-
 # remove temporary files
 rm -f $IRODS_HOME_DIR/plaintext_database_password.txt
+rm -f $UPGRADE_FLAG_FILE
 
 # =-=-=-=-=-=-=-
 # chown the binary_installation.flag file

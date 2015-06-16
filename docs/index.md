@@ -1,4 +1,4 @@
-# [iRODS](https://docs.irods.org)
+[![iRODS](iRODS-Logo.png)](https://docs.irods.org)
 
 [![Build Status](https://travis-ci.org/irods/irods.svg?branch=master)](https://travis-ci.org/irods/irods) [![Coverity Scan Build Status](https://scan.coverity.com/projects/2605/badge.svg)](https://scan.coverity.com/projects/2605) [![Issue Stats](http://issuestats.com/github/irods/irods/badge/pr?style=flat)](http://issuestats.com/github/irods/irods) [![Issue Stats](http://issuestats.com/github/irods/irods/badge/issue?style=flat)](http://issuestats.com/github/irods/irods)
 
@@ -33,6 +33,7 @@ iRODS is released under a 3-clause BSD License.
 
 ## Links to elsewhere...
 
- - http://github.com/irods
- - http://twitter.com/irods
+ - [https://github.com/irods](https://github.com/irods)
+ - [https://docs.irods.org](https://docs.irods.org)
+ - [https://twitter.com/irods](https://twitter.com/irods)
 

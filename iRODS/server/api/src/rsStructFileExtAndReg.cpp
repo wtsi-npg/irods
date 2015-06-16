@@ -98,11 +98,11 @@ rsStructFileExtAndReg( rsComm_t *rsComm,
             irods::error pass_err = PASSMSG( msg.str(), ret );
             irods::log( pass_err );
 
-            if( CAT_NO_ROWS_FOUND == pass_err.code() ) {
+            if ( CAT_NO_ROWS_FOUND == pass_err.code() ) {
                 char* resc_name_kw = getValByKey( &dataObjInp.condInput, RESC_NAME_KW );
                 std::string msg( structFileExtAndRegInp->objPath );
                 msg += " does not exist";
-                if( resc_name_kw ) {
+                if ( resc_name_kw ) {
                     msg += " or is not a replica on the target resource [";
                     msg += resc_name_kw;
                     msg += "]";
@@ -113,11 +113,11 @@ rsStructFileExtAndReg( rsComm_t *rsComm,
                     msg.c_str() );
                 ret.code( REPLICA_NOT_IN_RESC ); // repave to be real error
             }
-            else if( SYS_RESC_DOES_NOT_EXIST == pass_err.code() ) {
+            else if ( SYS_RESC_DOES_NOT_EXIST == pass_err.code() ) {
                 char* resc_name_kw = getValByKey( &dataObjInp.condInput, RESC_NAME_KW );
                 std::string msg( structFileExtAndRegInp->objPath );
                 msg += " resource does not exist ";
-                if( resc_name_kw ) {
+                if ( resc_name_kw ) {
                     msg += "[";
                     msg += resc_name_kw;
                     msg += "]";
@@ -190,7 +190,7 @@ rsStructFileExtAndReg( rsComm_t *rsComm,
         /* rename the phyBunDir */
         char tmp[MAX_NAME_LEN]; // JMC cppcheck - src & dst snprintf
         strcpy( tmp, phyBunDir ); // JMC cppcheck - src & dst snprintf
-        snprintf( phyBunDir, MAX_NAME_LEN, "%s.%-d", tmp, ( int ) random() ); // JMC cppcheck - src & dst snprintf
+        snprintf( phyBunDir, MAX_NAME_LEN, "%s.%-u", tmp, getRandomInt() ); // JMC cppcheck - src & dst snprintf
         status = unbunPhyBunFile( rsComm, dataObjInp.objPath, resc_name,
                                   dataObjInfo->filePath, phyBunDir,  dataObjInfo->dataType, 0,
                                   rescHier.c_str() );
@@ -453,11 +453,11 @@ regSubfile( rsComm_t *rsComm, const char *_resc_name, const char* rescHier,
     }
     /* make the necessary dir */
     status = mkDirForFilePath(
-        rsComm,
-        0,
-        dataObjInfo.filePath,
-        dataObjInfo.rescHier,
-        getDefDirMode() );
+                 rsComm,
+                 0,
+                 dataObjInfo.filePath,
+                 dataObjInfo.rescHier,
+                 getDefDirMode() );
     if ( status ) {
         rodsLog( LOG_ERROR, "mkDirForFilePath failed in regSubfile with status %d.", status );
         return status;

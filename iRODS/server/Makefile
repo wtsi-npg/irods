@@ -118,7 +118,7 @@ INCLUDES +=	-I$(svrIcatIncDir)
 
 # icat
 ifdef RODS_CAT
-CFLAGS +=	-DRODS_CAT
+CFLAGS += -DRODS_CAT
 SVR_ICAT_OBJS =	\
 		$(svrIcatObjDir)/icatHighLevelRoutines.o
 
@@ -127,44 +127,24 @@ INCLUDES +=	-I$(svrIcatIncDir)
 SERVER_BINS +=  $(serverBinDir)/irodsXmsgServer
 SERVER_OBJS +=	$(svrCoreObjDir)/irodsXmsgServer.o
 
-ifdef PSQICAT
-INCLUDES +=	-I$(POSTGRES_HOME)/include
-endif
-
-ifdef ORAICAT
-CFLAGS +=	-DORA_ICAT
-INCLUDES +=	-I$(ORACLE_HOME)/rdbms/public
-endif
-endif
-
-ifdef MYICAT
-INCLUDES +=	-I$(UNIXODBC_HOME)/include
-CFLAGS += -DUNIXODBC_DATASOURCE=\"$(UNIXODBC_DATASOURCE)\" -DMY_ICAT=1
-endif
-
-ifdef DBMS_LIB
-LDFLAGS +=	$(DBMS_LIB)
 endif
 
 ifdef RELEASE_FLAG
-CFLAGS +=       -DRELEASE_FLAG
-endif
-ifdef IRODS_SYSLOG
-CFLAGS +=		-DIRODS_SYSLOG
+CFLAGS += -DRELEASE_FLAG
 endif
 
 ifdef SYSLOG_FACILITY_CODE
-CFLAGSS +=     -D SYSLOG_FACILITY_CODE=$(SYSLOG_FACILITY_CODE)
+CFLAGSS += -D SYSLOG_FACILITY_CODE=$(SYSLOG_FACILITY_CODE)
 endif
 
 # re
-CFLAGS +=       -DCACHE_ENABLE
+CFLAGS += -DCACHE_ENABLE
 
 ifeq ($(OS_platform), osx_platform)
 # osx_platform does not support the POSIX realtime extension, but the shared memory functions are supported
 LDADD += -rdynamic -force_flat_namespace
 else
-LDADD +=		-lrt
+LDADD += -lrt
 endif
 
 SVR_RE_OBJS =	\
@@ -298,7 +278,6 @@ test:	$(TEST_OBJS) $(TEST_BINS)
 
 # temp include jansson for zonereport
 CFLAGS += -I../../external/$(JANSSONVERSION)/src/
-AG_LDADD += ../../external/$(JANSSONVERSION)/src/.libs/libjansson.a
 LDFLAGS += ../../external/$(JANSSONVERSION)/src/.libs/libjansson.a
 
 # temp include for control plane
@@ -397,7 +376,7 @@ $(svrCoreObjDir)/rodsAgent.o: $(svrCoreObjDir)/%.o: $(svrCoreSrcDir)/%.cpp $(LIB
 
 $(serverBinDir)/irodsAgent: db_plugin_with_re $(svrCoreObjDir)/rodsAgent.o $(LIBRARY) $(OBJS) $(BOOST_LIBS)
 	@echo "Link agent server `basename $@`..."
-	$(V_at)$(LDR) -o $@ $(svrCoreObjDir)/rodsAgent.o $(LIBRARY) $(OBJS)  $(DB_PLUGIN_OBJ) $(BOOST_LIBS) $(LDFLAGS) $(AG_LDADD)
+	$(V_at)$(LDR) -o $@ $(svrCoreObjDir)/rodsAgent.o $(LIBRARY) $(OBJS)  $(DB_PLUGIN_OBJ) $(BOOST_LIBS) $(LDFLAGS)
 
 # Rule engine
 $(svrCoreObjDir)/irodsReServer.o: $(svrCoreObjDir)/%.o: $(svrCoreSrcDir)/%.cpp $(LIBRARY) $(OBJS)

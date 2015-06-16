@@ -16,7 +16,7 @@
    the form irodsNAME, such as irodsfopen.  Internal function names
    begin with 'isio'.
 
-   The irods environment is assummed.  That is, like i-commands, this
+   The irods environment is assummed.  That is, like iCommands, this
    library needs to read the user's irods_environment.json and
    authentication files to be able to connect to an iRODS server.
 
@@ -65,8 +65,6 @@ int
 isioSetup() {
     int status;
     rErrMsg_t errMsg;
-    char *mySubName;
-    char *myName;
 
     if ( debug ) {
         printf( "isioSetup\n" );
@@ -81,13 +79,15 @@ isioSetup() {
                       myRodsEnv.rodsZone, 0, &errMsg );
 
     if ( Comm == NULL ) {
-        myName = rodsErrorName( errMsg.status, &mySubName );
+        char *mySubName = NULL;
+        const char *myName = rodsErrorName( errMsg.status, &mySubName );
         rodsLog( LOG_ERROR, "rcConnect failure %s (%s) (%d) %s",
                  myName,
                  mySubName,
                  errMsg.status,
                  errMsg.msg );
         status = errMsg.status;
+        free( mySubName );
         return status;
     }
 

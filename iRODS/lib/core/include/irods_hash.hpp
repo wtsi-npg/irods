@@ -7,6 +7,8 @@
 #define HASH_TYPE boost::unordered_map
 
 #include <string>
+#include "irods_stacktrace.hpp"
+#include "irods_log.hpp"
 
 namespace irods {
 
@@ -18,7 +20,14 @@ namespace irods {
 
         }; // min_buckets = 2 ^^ N, 0 < N
 
-        size_t operator()( const std::string s1 ) const {
+        size_t operator()( const std::string& s1 ) const {
+            if ( s1.empty() ) {
+                rodsLog(
+                    LOG_NOTICE,
+                    "irods_string_hash - empty string value" );
+                return 0;
+            }
+
             // hash string s1 to size_t value
             const unsigned char *p = ( const unsigned char * )s1.c_str();
             size_t hashval = 0;
@@ -32,6 +41,9 @@ namespace irods {
 
         bool operator()( const std::string s1, const std::string s2 ) const {
             return s1 < s2;
+        }
+
+        ~irods_string_hash() {
         }
 
     }; // struct irods_string_hash

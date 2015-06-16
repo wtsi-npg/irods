@@ -23,7 +23,6 @@ CFLAGS += `../../packaging/compiler_check.sh 4 2`
 
 # jansson support
 CFLAGS += -I../../external/jansson-2.7/src/
-AG_LDADD += ../../external/jansson-2.7/src/.libs/libjansson.a
 LDFLAGS += ../../external/jansson-2.7/src/.libs/libjansson.a
 
 #
@@ -123,13 +122,6 @@ ifdef RELEASE_FLAG
 CFLAGS +=       -DRELEASE_FLAG
 endif
 
-ifdef SHA256_FILE_HASH
-CFLAGS += -DSHA256_FILE_HASH
-endif
-
-# Logging (automatically generated source)
-LOG_SRC =	$(libCoreSrcDir)/rodsLog.cpp
-
 # Hasher
 LIB_HASHER_OBJS = \
 		$(libHasherObjDir)/Hasher.o \
@@ -169,9 +161,6 @@ CONFIG =	$(svrConfigDir)/irodsHost
 CFLAGS_OPTIONS := $(CFLAGS) $(MY_CFLAG)
 CFLAGS =	$(CFLAGS_OPTIONS) $(INCLUDES) $(SVR_INCLUDES)
 
-ifdef IRODS_SYSLOG
-CFLAGS_OPTIONS += -D IRODS_SYSLOG
-endif
 ifdef SYSLOG_FACILITY_CODE
 CFLAGS_OPTIONS += -D SYSLOG_FACILITY_CODE=$(SYSLOG_FACILITY_CODE)
 endif
@@ -191,7 +180,7 @@ all:	libs
 lib:	libs
 	@true
 
-libs:	$(CONFIG) $(LOG_SRC) $(LIBRARY)
+libs:	$(CONFIG) $(LIBRARY)
 	@true
 
 $(LIBRARY): $(OBJS) $(BOOST_LIBS)
@@ -200,7 +189,7 @@ $(LIBRARY): $(OBJS) $(BOOST_LIBS)
 	@echo "Building lib$(LIBRARY_NAME).a"
 	@rm -f $(LIBRARY)
 	$(V_at)$(AR) $(AROPT) $(LIBRARY) $^
-	$(V_at)$(RANLIB) $(LIBRARY)
+	$(V_at)$(AR) -s $(LIBRARY)
 
 # Server configuration
 $(svrConfigDir)/irodsHost:
@@ -216,7 +205,6 @@ clean:
 	@echo "Cleaning library..."
 	@rm -f $(OBJS)
 	@rm -f $(LIBRARY)
-	@rm -f $(LOG_SRC)
 
 #
 # Compilation Targets
@@ -239,10 +227,3 @@ $(LIB_HASHER_OBJS): $(libHasherObjDir)/%.o: $(libHasherSrcDir)/%.cpp $(configMk)
 $(LIB_RBUDP_OBJS):  $(libRbudpObjDir)/%.o: $(libRbudpSrcDir)/%.cpp $(configMk) $(platformMk)
 	@echo "Compile rbudp `basename $@`..."
 	$(V_at)$(CC) -c $(CFLAGS) -o $@ $<
-
-# Build logging source
-rodslog:  $(LOG_SRC)
-	@true
-
-$(LOG_SRC):  $(libCoreIncDir)/rodsErrorTable.h
-	@$(PERL) $(perlScriptsDir)/updateRodsLog.pl

@@ -13,7 +13,7 @@
 #include "irods_pack_table.hpp"
 #include "irods_parse_command_line_options.hpp"
 
-void usage();
+void usage( FILE* );
 
 int
 main( int argc, char **argv ) {
@@ -41,10 +41,14 @@ main( int argc, char **argv ) {
                     UNKNOWN_OBJ_T,
                     0,
                     &rodsPathInp );
-    if( p_err < 0 ) {
-        usage();
-        return 1;
+    if ( p_err < 0 ) {
+        usage( stderr );
+        return EXIT_FAILURE;
 
+    }
+    else if ( myRodsArgs.help ) {
+        usage( stdout );
+        return EXIT_SUCCESS;
     }
 
     if ( myRodsArgs.reconnect == True ) {
@@ -92,18 +96,23 @@ main( int argc, char **argv ) {
 }
 
 void
-usage() {
+usage( FILE* _fout ) {
+    if ( !_fout ) {
+        fprintf( stderr, "usage - invalid file pointer\n" );
+        return;
+    }
+
     char *msgs[] = {
         "Usage: iput [-abfIkKPQrtTUvV] [-D dataType] [-N numThreads] [-n replNum]",
         "             [-p physicalPath] [-R resource] [-X restartFile] [--link]",
         "             [--lfrestart lfRestartFile] [--retries count] [--wlock]",
         "             [--purgec] [--kv_pass=key-value-string] [--metadata=avu-string]",
-        "               localSrcFile|localSrcDir ...  destDataObj|destColl",
+        "             [--acl=acl-string]  localSrcFile|localSrcDir ...  destDataObj|destColl",
         "Usage: iput [-abfIkKPQtTUvV] [-D dataType] [-N numThreads] [-n replNum] ",
         "             [-p physicalPath] [-R resource] [-X restartFile] [--link]",
         "             [--lfrestart lfRestartFile] [--retries count] [--wlock]",
         "             [--purgec] [--kv_pass=key-value-string] [--metadata=avu-string]",
-        "               localSrcFile",
+        "             [--acl=acl-string]  localSrcFile",
         " ",
         "Store a file into iRODS.  If the destination data-object or collection are",
         "not provided, the current iRODS directory and the input file name are used.",
@@ -206,6 +215,9 @@ usage() {
         " --metadata - atomically assign metadata after a data object is registered in",
         "              the catalog. Metadata is encoded into a quoted string of the",
         "              form attr1;val1;unit1;attr2;val2;unit2;",
+        " --acl - atomically apply ACLs of the form",
+        "          'perm user_or_group;perm user_or_group;'",
+        "          where 'perm' is defined as null|read|write|own",
         " -h  this help",
         ""
     };
@@ -214,7 +226,7 @@ usage() {
         if ( strlen( msgs[i] ) == 0 ) {
             break;
         }
-        printf( "%s\n", msgs[i] );
+        fprintf( _fout, "%s\n", msgs[i] );
     }
     printReleaseInfo( "iput" );
 }

@@ -62,7 +62,7 @@ rsDataObjPut( rsComm_t *rsComm, dataObjInp_t *dataObjInp,
         try {
             irods::deserialize_metadata( metadata_string );
         }
-        catch ( const irods::exception& e  ) {
+        catch ( const irods::exception& e ) {
             rodsLog( LOG_ERROR, "%s", e.what() );
             return e.code();
         }
@@ -367,7 +367,7 @@ _l3DataPutSingleBuf( rsComm_t *rsComm, int l1descInx, dataObjInp_t *dataObjInp,
 
         // special case of zero length files, trigger the fileModified
         // operation for execution of coordinating resource logic
-        if( 0 == dataObjInp->dataSize ) {
+        if ( 0 == dataObjInp->dataSize ) {
             irods::file_object_ptr file_obj(
                 new irods::file_object(
                     rsComm,
@@ -451,7 +451,7 @@ l3FilePutSingleBuf( rsComm_t *rsComm, int l1descInx, bytesBuf_t *dataObjInpBBuf 
     filePutInp.flags = O_WRONLY | dataObjInp->openFlags;
     rstrcpy( filePutInp.in_pdmo, L1desc[l1descInx].in_pdmo, MAX_NAME_LEN );
     // kv pasthru
-    copyKeyVal( 
+    copyKeyVal(
         &dataObjInfo->condInput,
         &filePutInp.condInput );
 

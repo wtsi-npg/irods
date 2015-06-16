@@ -5,12 +5,14 @@
 #include "irods_kvp_string_parser.hpp"
 #include "irods_buffer_encryption.hpp"
 #include "irods_hasher_factory.hpp"
+#include "irods_configuration_parser.hpp"
 #include "MD5Strategy.hpp"
 #include "sockComm.h"
 #include "sockCommNetworkInterface.hpp"
 
 // =-=-=-=-=-=-=-
 // irods includes
+#include "rsGlobalExtern.hpp"
 #include "rodsDef.h"
 #include "rodsConnect.h"
 #include "rcMisc.h"
@@ -23,6 +25,54 @@
 
 
 namespace irods {
+/// =-=-=-=-=-=-=-
+/// @brief given a property map and the target host name decide between a federated key and a local key
+    error determine_negotiation_key(
+        const std::string& _host_name,
+        server_properties& _props,
+        std::string&       _neg_key ) {
+        typedef irods::configuration_parser::object_t object_t;
+        typedef irods::configuration_parser::array_t  array_t;
+
+        // search the federation map for the host name
+        array_t fed_arr;
+        error ret = _props.get_property <
+                    array_t > (
+                        irods::CFG_FEDERATION_KW,
+                        fed_arr );
+        if ( ret.ok() ) {
+            for ( size_t i = 0; i < fed_arr.size(); ++i ) {
+                object_t& obj = fed_arr[ i ];
+                std::string fed_icat_host, fed_zone_negotiation_key;
+                try {
+                    fed_zone_negotiation_key = boost::any_cast< std::string >(
+                                                   obj[ irods::CFG_NEGOTIATION_KEY_KW ] );
+                    fed_icat_host = boost::any_cast< std::string >(
+                                        obj[irods::CFG_ICAT_HOST_KW ] );
+                    if ( _host_name == fed_icat_host ) {
+                        _neg_key = fed_zone_negotiation_key;
+                        return SUCCESS();
+                    }
+                }
+                catch ( boost::bad_any_cast& _e ) {
+                    rodsLog(
+                        LOG_ERROR,
+                        "%s - failed to cast federation entry to string",
+                        __FUNCTION__ );
+                    continue;
+                }
+
+            } // for i
+
+        }
+
+        // if not, it must be in our zone
+        return _props.get_property <
+               std::string > (
+                   CFG_NEGOTIATION_KEY_KW,
+                   _neg_key );
+
+    } // determine_negotiation_key
 
 /// =-=-=-=-=-=-=-
 /// @brief given a buffer encrypt and hash it for negotiation
@@ -199,6 +249,7 @@ namespace irods {
 /// @brief function which manages the TLS and Auth negotiations with the client
     error client_server_negotiation_for_client(
         irods::network_object_ptr _ptr,
+        const std::string&        _host_name,
         std::string&              _result ) {
 
         // =-=-=-=-=-=-=-
@@ -215,8 +266,8 @@ namespace irods {
         if ( svr_policy.empty() || cs_neg->status_ != CS_NEG_STATUS_SUCCESS ) {
             std::stringstream msg;
             msg << "invalid result [" << cs_neg->result_ << "]  or status: " << cs_neg->status_;
-            return ERROR( 
-                       CLIENT_NEGOTIATION_ERROR, 
+            return ERROR(
+                       CLIENT_NEGOTIATION_ERROR,
                        msg.str() );
         }
 
@@ -258,7 +309,7 @@ namespace irods {
             cs_neg_t send_cs_neg;
             send_cs_neg.status_ = CS_NEG_STATUS_FAILURE;
             snprintf( send_cs_neg.result_, sizeof( send_cs_neg.result_ ),
-                    "%s", CS_NEG_FAILURE.c_str() );
+                      "%s", CS_NEG_FAILURE.c_str() );
             error send_err = send_client_server_negotiation_message(
                                  _ptr,
                                  send_cs_neg );
@@ -269,7 +320,7 @@ namespace irods {
             std::stringstream msg;
             msg << "client-server negoations failed for server request [";
             msg << svr_policy << "] and client request [" << cli_policy << "]";
-            ret = ERROR( 
+            ret = ERROR(
                       CLIENT_NEGOTIATION_ERROR,
                       msg.str() );
             return ret;
@@ -294,28 +345,28 @@ namespace irods {
                       irods::CFG_ZONE_KEY_KW,
                       sid );
             if ( !err.ok() ) {
-                 err = props.get_property <
+                err = props.get_property <
                       std::string > (
                           LOCAL_ZONE_SID_KW,
                           sid );
-                  if( !err.ok() ) {
-                      return PASS( err );
-                  }
+                if ( !err.ok() ) {
+                    return PASS( err );
+                }
             }
-            
+
             if ( err.ok() ) {
-                std::string enc_key;
-                err = props.get_property <
-                      std::string > (
-                          CFG_NEGOTIATION_KEY_KW,
-                          enc_key );
+                std::string neg_key;
+                err = determine_negotiation_key(
+                          _host_name,
+                          props,
+                          neg_key );
                 if ( err.ok() ) {
                     // =-=-=-=-=-=-=-
                     // sign the SID
                     std::string signed_sid;
                     err = sign_server_sid(
                               sid,
-                              enc_key,
+                              neg_key,
                               signed_sid );
                     if ( err.ok() ) {
                         // =-=-=-=-=-=-=-

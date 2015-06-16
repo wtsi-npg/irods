@@ -89,8 +89,6 @@ int
 doSimpleQuery( simpleQueryInp_t simpleQueryInp ) {
     int status;
     simpleQueryOut_t *simpleQueryOut;
-    char *mySubName;
-    char *myName;
     status = rcSimpleQuery( Conn, &simpleQueryInp, &simpleQueryOut );
     lastCommandStatus = status;
 
@@ -111,9 +109,11 @@ doSimpleQuery( simpleQueryInp_t simpleQueryInp ) {
                 rodsLog( LOG_ERROR, "Level %d: %s", i, ErrMsg->msg );
             }
         }
-        myName = rodsErrorName( status, &mySubName );
+        char *mySubName = NULL;
+        const char *myName = rodsErrorName( status, &mySubName );
         rodsLog( LOG_ERROR, "rcSimpleQuery failed with error %d %s %s",
                  status, myName, mySubName );
+        free( mySubName );
         return status;
     }
 
@@ -126,10 +126,12 @@ doSimpleQuery( simpleQueryInp_t simpleQueryInp ) {
         for ( ; simpleQueryOut->control > 0 && status == 0; ) {
             status = rcSimpleQuery( Conn, &simpleQueryInp, &simpleQueryOut );
             if ( status < 0 && status != CAT_NO_ROWS_FOUND ) {
-                myName = rodsErrorName( status, &mySubName );
+                char *mySubName = NULL;
+                const char *myName = rodsErrorName( status, &mySubName );
                 rodsLog( LOG_ERROR,
                          "rcSimpleQuery failed with error %d %s %s",
                          status, myName, mySubName );
+                free( mySubName );
                 return status;
             }
             if ( status == 0 ) {
@@ -230,12 +232,12 @@ getLocalZone() {
         status = rcSimpleQuery( Conn, &simpleQueryInp, &simpleQueryOut );
         lastCommandStatus = status;
         if ( status < 0 ) {
-            char *myName;
-            char *mySubName;
-            myName = rodsErrorName( status, &mySubName );
+            char *mySubName = NULL;
+            const char *myName = rodsErrorName( status, &mySubName );
             rodsLog( LOG_ERROR, "rcSimpleQuery failed with error %d %s %s",
                      status, myName, mySubName );
             fprintf( stderr, "Error getting local zone\n" );
+            free( mySubName );
             return status;
         }
         strncpy( localZone, simpleQueryOut->outBuf, BIG_STR );
@@ -604,8 +606,6 @@ generalAdmin( int userOption, char *arg0, char *arg1, char *arg2, char *arg3,
     generalAdminInp_t generalAdminInp;
     userAdminInp_t userAdminInp;
     int status;
-    char *mySubName;
-    char *myName;
     char *funcName;
 
     if ( _rodsArgs && _rodsArgs->dryrun ) {
@@ -661,11 +661,13 @@ generalAdmin( int userOption, char *arg0, char *arg1, char *arg2, char *arg3,
         fprintf( stderr, "Invalid username format." );
     }
     else if ( status < 0 && status != CAT_SUCCESS_BUT_WITH_NO_INFO ) {
-        myName = rodsErrorName( status, &mySubName );
+        char *mySubName = NULL;
+        const char *myName = rodsErrorName( status, &mySubName );
         rodsLog( LOG_ERROR, "%s failed with error %d %s %s", funcName, status, myName, mySubName );
         if ( status == CAT_INVALID_USER_TYPE ) {
             fprintf( stderr, "See 'lt user_type' for a list of valid user types.\n" );
         }
+        free( mySubName );
     } // else if status < 0
 
     printErrorStack( Conn->rError );
@@ -841,8 +843,8 @@ doCommand( char *cmdToken[], rodsArguments_t* _rodsArgs = 0 ) {
     }
     if ( strcmp( cmdToken[0], "lrg" ) == 0 ) {
         fprintf( stderr, "Resource groups are deprecated.\n"
-            "Please investigate the available coordinating resource plugins.\n"
-            "(e.g. random, replication, etc.)\n" );
+                 "Please investigate the available coordinating resource plugins.\n"
+                 "(e.g. random, replication, etc.)\n" );
         return 0;
     }
     if ( strcmp( cmdToken[0], "mkuser" ) == 0 ) {
@@ -1086,12 +1088,12 @@ doCommand( char *cmdToken[], rodsArguments_t* _rodsArgs = 0 ) {
     if ( strcmp( cmdToken[0], "modresc" ) == 0 ) {
         if ( strcmp( cmdToken[2], "name" ) == 0 )       {
             printf(
-                    "If you modify a resource name, you and other users will need to\n"
-                    "change your irods_environment.json files to use it, you may need to update\n"
-                    "server_config.json and, if rules use the resource name, you'll need to\n"
-                    "update the core rules (core.re).  This command will update various\n"
-                    "tables with the new name.\n"
-                    "Do you really want to modify the resource name? (enter y or yes to do so):" );
+                "If you modify a resource name, you and other users will need to\n"
+                "change your irods_environment.json files to use it, you may need to update\n"
+                "server_config.json and, if rules use the resource name, you'll need to\n"
+                "update the core rules (core.re).  This command will update various\n"
+                "tables with the new name.\n"
+                "Do you really want to modify the resource name? (enter y or yes to do so):" );
             std::string response = "";
             getline( std::cin, response );
             if ( response == "y" || response == "yes" ) {
@@ -1102,10 +1104,10 @@ doCommand( char *cmdToken[], rodsArguments_t* _rodsArgs = 0 ) {
                 if ( strcmp( cmdToken[2], "path" ) == 0 ) {
                     if ( stat == 0 ) {
                         printf(
-                                "Modify resource path was successful.\n"
-                                "If the existing iRODS files have been physically moved,\n"
-                                "you may want to run 'iadmin modrescdatapaths' with the old\n"
-                                "and new path.  See 'iadmin h modrescdatapaths' for more information.\n" );
+                            "Modify resource path was successful.\n"
+                            "If the existing iRODS files have been physically moved,\n"
+                            "you may want to run 'iadmin modrescdatapaths' with the old\n"
+                            "and new path.  See 'iadmin h modrescdatapaths' for more information.\n" );
                     }
                 }
 
@@ -1129,12 +1131,12 @@ doCommand( char *cmdToken[], rodsArguments_t* _rodsArgs = 0 ) {
         if ( strcmp( myEnv.rodsZone, cmdToken[1] ) == 0 &&
                 strcmp( cmdToken[2], "name" ) == 0 )       {
             printf(
-                    "If you modify the local zone name, you and other users will need to\n"
-                    "change your irods_environment.json files to use it, you may need to update\n"
-                    "server_config.json and, if rules use the zone name, you'll need to update\n"
-                    "core.re.  This command will update various tables with the new name\n"
-                    "and rename the top-level collection.\n"
-                    "Do you really want to modify the local zone name? (enter y or yes to do so):" );
+                "If you modify the local zone name, you and other users will need to\n"
+                "change your irods_environment.json files to use it, you may need to update\n"
+                "server_config.json and, if rules use the zone name, you'll need to update\n"
+                "core.re.  This command will update various tables with the new name\n"
+                "and rename the top-level collection.\n"
+                "Do you really want to modify the local zone name? (enter y or yes to do so):" );
             std::string response = "";
             getline( std::cin, response );
             if ( response == "y" || response == "yes" ) {
@@ -1190,17 +1192,17 @@ doCommand( char *cmdToken[], rodsArguments_t* _rodsArgs = 0 ) {
 
     if ( strcmp( cmdToken[0], "atrg" ) == 0 ) {
         fprintf( stderr,
-                "Resource groups are deprecated.\n"
-                "Please investigate the available coordinating resource plugins.\n"
-                "(e.g. random, replication, etc.)\n" );
+                 "Resource groups are deprecated.\n"
+                 "Please investigate the available coordinating resource plugins.\n"
+                 "(e.g. random, replication, etc.)\n" );
         return 0;
     }
 
     if ( strcmp( cmdToken[0], "rfrg" ) == 0 ) {
         fprintf( stderr,
-                "Resource groups are deprecated.\n"
-                "Please investigate the available coordinating resource plugins.\n"
-                "(e.g. random, replication, etc.)\n" );
+                 "Resource groups are deprecated.\n"
+                 "Please investigate the available coordinating resource plugins.\n"
+                 "(e.g. random, replication, etc.)\n" );
         return 0;
     }
 
@@ -1260,9 +1262,6 @@ doCommand( char *cmdToken[], rodsArguments_t* _rodsArgs = 0 ) {
     }
     if ( strcmp( cmdToken[0], "dspass" ) == 0 ) {
         char unscrambled[MAX_PASSWORD_LEN + 100];
-        if ( simpleQueryCheck() != 0 ) {
-            exit( -1 ); /* not authorized */
-        }
         if ( strlen( cmdToken[1] ) > MAX_PASSWORD_LEN - 2 ) {
             fprintf( stderr, "Scrambled password exceeds maximum length\n" );
         }
@@ -1302,9 +1301,9 @@ doCommand( char *cmdToken[], rodsArguments_t* _rodsArgs = 0 ) {
                                "", "", "", "", "", "" );
         if ( status == CAT_SUCCESS_BUT_WITH_NO_INFO ) {
             printf(
-                    "The return of CAT_SUCCESS_BUT_WITH_NO_INFO in this case means that the\n"
-                    "SQL succeeded but there were no rows removed; there were no unused\n"
-                    "AVUs to remove.\n" );
+                "The return of CAT_SUCCESS_BUT_WITH_NO_INFO in this case means that the\n"
+                "SQL succeeded but there were no rows removed; there were no unused\n"
+                "AVUs to remove.\n" );
             lastCommandStatus = 0;
 
         }
@@ -1356,18 +1355,8 @@ main( int argc, char **argv ) {
 
     signal( SIGPIPE, SIG_IGN );
 
-    int status, i, j;
-    rErrMsg_t errMsg;
-
     rodsArguments_t myRodsArgs;
-
-    char *mySubName;
-    char *myName;
-
-    int maxCmdTokens = 20;
-    char *cmdToken[20];
-
-    status = parseCmdLineOpt( argc, argv, "fvVhZ", 1, &myRodsArgs );
+    int status = parseCmdLineOpt( argc, argv, "fvVhZ", 1, &myRodsArgs );
 
 #ifdef osx_platform
     // getopt has different behavior on OSX, we work around this for
@@ -1383,7 +1372,6 @@ main( int argc, char **argv ) {
     } // if argc
 #endif
 
-
     if ( status ) {
         fprintf( stderr, "Use -h for help.\n" );
         return 2;
@@ -1394,22 +1382,18 @@ main( int argc, char **argv ) {
     }
     int argOffset = myRodsArgs.optind;
 
-    memset( &myEnv, 0, sizeof( myEnv ) );
-    status = getRodsEnv( &myEnv );
-    if ( status < 0 ) {
-        rodsLog( LOG_ERROR, "main: getRodsEnv error. status = %d",
-                 status );
-        return 1;
-    }
 
     if ( myRodsArgs.veryVerbose == True ) {
         veryVerbose = 1;
     }
 
+    int i;
+    const int maxCmdTokens = 20;
+    char *cmdToken[maxCmdTokens];
     for ( i = 0; i < maxCmdTokens; i++ ) {
         cmdToken[i] = "";
     }
-    j = 0;
+    int j = 0;
     for ( i = argOffset; i < argc; i++ ) {
         cmdToken[j++] = argv[i];
     }
@@ -1433,6 +1417,29 @@ main( int argc, char **argv ) {
             printf( "Scrambled form is:%s\n", scrambled );
         }
         return 0;
+    }
+
+    if ( strcmp( cmdToken[0], "dspass" ) == 0 ) {
+        char unscrambled[MAX_PASSWORD_LEN + 100];
+        if ( strlen( cmdToken[1] ) > MAX_PASSWORD_LEN - 2 ) {
+            fprintf( stderr, "Scrambled password exceeds maximum length\n" );
+        }
+        else {
+            if ( strlen( cmdToken[2] ) == 0 ) {
+                fprintf( stderr, "Warning, scramble key is null\n" );
+            }
+            obfDecodeByKey( cmdToken[1], cmdToken[2], unscrambled );
+            printf( "Unscrambled form is:%s\n", unscrambled );
+        }
+        return 0;
+    }
+
+    memset( &myEnv, 0, sizeof( myEnv ) );
+    status = getRodsEnv( &myEnv );
+    if ( status < 0 ) {
+        rodsLog( LOG_ERROR, "main: getRodsEnv error. status = %d",
+                 status );
+        return 1;
     }
 
     if ( strcmp( cmdToken[0], "ctime" ) == 0 ) {
@@ -1465,16 +1472,19 @@ main( int argc, char **argv ) {
     irods::api_entry_table&  api_tbl = irods::get_client_api_table();
     init_api_table( api_tbl, pk_tbl );
 
+    rErrMsg_t errMsg;
     Conn = rcConnect( myEnv.rodsHost, myEnv.rodsPort, myEnv.rodsUserName,
                       myEnv.rodsZone, 0, &errMsg );
 
     if ( Conn == NULL ) {
-        myName = rodsErrorName( errMsg.status, &mySubName );
+        char *mySubName = NULL;
+        const char *myName = rodsErrorName( errMsg.status, &mySubName );
         rodsLog( LOG_ERROR, "rcConnect failure %s (%s) (%d) %s",
                  myName,
                  mySubName,
                  errMsg.status,
                  errMsg.msg );
+        free( mySubName );
         return 2;
     }
 
@@ -1494,7 +1504,7 @@ main( int argc, char **argv ) {
         }
         if ( firstTime ) {
             if ( status == 0 ||
-                 status == -2 ) {
+                    status == -2 ) {
                 keepGoing = false;
             }
             firstTime = false;
@@ -1502,7 +1512,8 @@ main( int argc, char **argv ) {
         if ( keepGoing ) {
             getInput( cmdToken, maxCmdTokens );
         }
-    } while ( keepGoing );
+    }
+    while ( keepGoing );
 
     printErrorStack( Conn->rError );
     rcDisconnect( Conn );
@@ -1590,12 +1601,12 @@ void
 usage( char *subOpt ) {
     char *luMsgs[] = {
         "lu [name] (list user info; details if name entered)",
-        "list user information.  ",
+        "list user information.",
         "Just 'lu' will briefly list currently defined users.",
         "If you include a user name, more detailed information is provided.",
-        "Usernames can include the zone preceeded by #, for example rods#tempZone.",
+        "Usernames can include the zone preceded by #, for example rods#tempZone.",
         "Users are listed in the userName#ZoneName form.",
-        "Also see the luz and lz and the iuserinfo command.",
+        "Also see the 'luz', 'lz', and 'iuserinfo' commands.",
         ""
     };
     char *luaMsgs[] = {
@@ -1604,8 +1615,8 @@ usage( char *subOpt ) {
         "Just 'lua' will list all the GSI/Kerberos names currently defined",
         "for all users along with the associated iRODS user names.",
         "If you include a user name, then the auth-names for that user are listed.",
-        "Usernames can include the zone preceeded by #, for example rods#tempZone.",
-        "Also see the 'luan', 'aua' and 'rua' and the 'iuserinfo' command.",
+        "Usernames can include the zone preceded by #, for example rods#tempZone.",
+        "Also see the 'luan', 'aua', 'rua', and 'iuserinfo' commands.",
         ""
     };
     char *luanMsgs[] = {
@@ -1626,7 +1637,7 @@ usage( char *subOpt ) {
     };
     char *ltMsgs[] = {
         "lt [name] [subname]",
-        "list token information.  ",
+        "list token information.",
         "Just 'lt' lists the types of tokens that are defined",
         "If you include a tokenname, it will list the values that are",
         "allowed for the token type.  For details, lt name subname, ",
@@ -1685,7 +1696,7 @@ usage( char *subOpt ) {
         "Type is the user type (see 'lt user_type' for a list)",
         "Zone is the user's zone (for remote-zone users)",
         " ",
-        "Tip: Use moduser to set a password or other attributes, "
+        "Tip: Use moduser to set a password or other attributes,",
         "     use 'aua' to add a user auth name (GSI DN or Kerberos Principal name)",
         ""
     };
@@ -1735,7 +1746,7 @@ usage( char *subOpt ) {
 
     char *ruaMsgs[] = {
         " rua Name[#Zone] Auth-Name (remove user authentication-name (GSI/Kerberos)",
-        "Remove a user authentication name, a GSI  Distinquished Name (DN) or",
+        "Remove a user authentication name, a GSI Distinquished Name (DN) or",
         "Kerberos Principal name, from being associated with an iRODS user.",
         "These are used with Kerberos and/or GSI authentication, if enabled.",
         "Also see 'aua', 'lua', and 'luan'.",
@@ -1744,7 +1755,7 @@ usage( char *subOpt ) {
 
     char *rppMsgs[] = {
         " rpp Name (remove PAM-derived Password for user Name)",
-        "Remove irods short-term (ususally 2 weeks) passwords that are created",
+        "Remove iRODS short-term (usually 2 weeks) passwords that are created",
         "when users authenticate via the iRODS PAM authentication method.",
         "For additional security, when using PAM (system passwords), 'iinit' will",
         "create a separate iRODS password that is then used (a subsequent 'iinit'",
@@ -1756,7 +1767,7 @@ usage( char *subOpt ) {
 
     char *rmuserMsgs[] = {
         " rmuser Name[#Zone] (remove user, where userName: name[@department][#zone])",
-        " Remove an irods user.",
+        " Remove an iRODS user.",
         ""
     };
 
@@ -1788,6 +1799,9 @@ usage( char *subOpt ) {
         "A ContextString can be added to a coordinating resource (where there is",
         "no hostname or vault path to be set) by explicitly setting the Host:Path",
         "to an empty string ('').",
+        " ",
+        "A list of available resource types can be shown with:",
+        "  iadmin lt resc_type",
         ""
     };
 
@@ -1900,7 +1914,7 @@ usage( char *subOpt ) {
         " modzone Name [ name | conn | comment ] newValue  (modify zone)",
         "Modify values in a zone definition, either the name, conn (connection-info),",
         "or comment.  Connection-info is the DNS host string:port, for example:",
-        "zuri.unc.edu:1247",
+        "irods.example.org:1247",
         "When modifying the conn information, it should be the hostname of the",
         "ICAT-Enabled-Server (IES); see 'h mkzone' for more.",
         " ",
@@ -1921,7 +1935,7 @@ usage( char *subOpt ) {
         "The problem only occurs at the '/' level because for zones there are",
         "both local and remote collections for the zone. As with any query in",
         "strict mode, when the user asks for information on a collection, the",
-        "ICAT-generated SQL adds checks to restrict results to data-objects or",
+        "iCAT-generated SQL adds checks to restrict results to data-objects or",
         "sub-collections in that collection to which the user has read or",
         "better access. The problem is that collections for the remote zones",
         "(/zone) do not have ACLs set, even if ichmod is run try to give it",
@@ -2018,8 +2032,8 @@ usage( char *subOpt ) {
         " ",
         " ctime now      - convert a current time to an iRODS time integer value.",
         " ",
-        " ctime str Timestr  - convert a string time string (YYYY-MM-DD.hh:mm:ss)",
-        " to an iRODS integer value time.",
+        " ctime str Timestr  - convert a string of the format Timestr",
+        " (YYYY-MM-DD.hh:mm:ss) to an iRODS integer value time.",
         " ",
         ""
     };
@@ -2065,18 +2079,11 @@ usage( char *subOpt ) {
         "(AVUs)) on objects (collections, data-objects, etc), or remove the",
         "objects themselves, the associations between those objects and the",
         "AVUs are removed but the actual AVUs (rows in another table) are left",
-        "in place.  This is because the SQL processing can be slow for this",
-        "because each AVU can be associated with multiple objects.  But this",
-        "only needs to be run once in a while, after any number of such",
-        "deletions have been done and only if the number of unused AVUs has",
-        "gotten large and so is slowing down the DBMS.  This command runs SQL",
-        "to remove those unused AVU rows.  For PostgreSQL and Oracle this will",
-        "usually only take a few seconds.  For MySQL it is much slower.",
-        " ",
-        "You can start a periodic rule/microservice to do this automatically,",
-        "by running 'irule clients/icommands/bin/delUnusedAVUs.ir'.",
-        "A good practice would be to schedule this to run once a night.",
-        "See the contents of delUnusedAVUs.ir for more information.",
+        "in place.  This is because each AVU can be associated with multiple",
+        "objects.  But this only needs to be run if the number of unused AVUs has",
+        "gotten large and is slowing down the DBMS.  This command runs SQL",
+        "to remove those unused AVU rows.  This is a slower command on MySQL",
+        " than on PostgreSQL and Oracle.",
         ""
     };
 
@@ -2084,16 +2091,16 @@ usage( char *subOpt ) {
         " asq 'SQL query' [Alias] (add specific query)",
         "Add a specific query to the list of those allowed.",
         "Care must be taken when defining these to prevent users from accessing",
-        "or updating information (in the ICAT tables) that needs to be restricted",
+        "or updating information (in the iCAT tables) that needs to be restricted",
         "(passwords, for example) as the normal general-query access controls are",
-        "bypassed via this.  This also requires an understanding of the ICAT schema",
+        "bypassed via this.  This also requires an understanding of the iCAT schema",
         "(see icatSysTables.sql) to properly link tables in your SQL.",
         "If an Alias is provided, clients can use that instead of the full SQL",
         "string to select the SQL.  Aliases are checked to be sure they are unique",
         "but the same SQL can have multiple aliases.",
         "These can be executed via 'iquest --sql'.",
         "Use 'iquest --sql ls' to see the currently defined list.",
-        "If 'iquest --sql ls' fails see icatSysInserts.sql for the definitions of two",
+        "If 'iquest --sql ls' fails, see icatSysInserts.sql for the definitions of two",
         "built-in specific queries (r_specific_query) that are needed.",
         "To add a specific query with single quotes(') within, use double",
         "quotes(\") around the SQL.",
@@ -2152,7 +2159,7 @@ usage( char *subOpt ) {
         usageMain();
     }
     else {
-        for (size_t i = 0; i < sizeof(subCmds)/sizeof(subCmds[0]); ++i ) {
+        for ( size_t i = 0; i < sizeof( subCmds ) / sizeof( subCmds[0] ); ++i ) {
             if ( strcmp( subOpt, subCmds[i] ) == 0 ) {
                 printMsgs( pMsgs[i] );
             }

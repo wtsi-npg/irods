@@ -149,6 +149,14 @@ while getopts ":chfj:rspvz" opt; do
 done
 echo ""
 
+# detect environment variables
+if [ "$IRODS_FTP_EXTERNAL" != "" ] ; then
+    echo "\$IRODS_FTP_EXTERNAL detected ... [$IRODS_FTP_EXTERNAL]"
+fi
+if [ "$IRODS_FTP_BUILD" != "" ] ; then
+    echo "\$IRODS_FTP_BUILD detected ... [$IRODS_FTP_BUILD]"
+fi
+
 # detect lack of submodules, and exit
 if [ ! -e ${SCRIPTPATH}/../irods_schema_configuration/v1 -o ! -e ${SCRIPTPATH}/../irods_schema_messaging/v1 ] ; then
     echo "${text_red}#######################################################" 1>&2
@@ -247,8 +255,6 @@ echo "Detected OS [$DETECTEDOS]"
 DETECTEDOSVERSION=`packaging/find_os_version.sh`
 echo "Detected OS Version [$DETECTEDOSVERSION]"
 cd $BUILDDIR/iRODS
-
-
 
 
 ############################################################
@@ -710,6 +716,14 @@ if [ "$DETECTEDOS" == "Ubuntu" -o "$DETECTEDOS" == "Debian" ] ; then
     fi
 fi
 
+# MacOSX requires --run-in-place
+if [ "$DETECTEDOS" == "MacOSX" -a "$RUNINPLACE" != "1" ] ; then
+    echo "${text_red}#######################################################" 1>&2
+    echo "ERROR :: MacOSX requires the --run-in-place option" 1>&2
+    echo "#######################################################${text_reset}" 1>&2
+    exit 1
+fi
+
 ################################################################################
 # housekeeping - update examples - keep them current
 #set_tmpfile
@@ -862,7 +876,7 @@ else
     echo "Detected unixODBC library [$UNIXODBC]"
 fi
 
-LIBFUSEDEV=`find /usr/include /usr/local/Cellar -name fuse.h 2> /dev/null | $GREPCMD -v linux`
+LIBFUSEDEV=`find /usr/include /usr/local/Cellar /usr/local/include -name fuse.h 2> /dev/null | $GREPCMD -v linux`
 if [ "$LIBFUSEDEV" == "" ] ; then
     if [ "$DETECTEDOS" == "Ubuntu" -o "$DETECTEDOS" == "Debian" ] ; then
         PREFLIGHT="$PREFLIGHT libfuse-dev"
@@ -1134,9 +1148,6 @@ if [ "$BUILDIRODS" == "1" ] ; then
     rm -f ./config/config.mk
     rm -f ./config/platform.mk
 
-    # =-=-=-=-=-=-=-
-    # run configure to create Makefile, config.mk, platform.mk, etc.
-    ./scripts/configure
 
     # handle issue with IRODS_HOME being overwritten by the configure script
     if [ "$RUNINPLACE" == "1" ] ; then
@@ -1172,80 +1183,87 @@ if [ "$BUILDIRODS" == "1" ] ; then
         detected_irods_config_dir="/etc/irods"
     fi
 
+    NEW_CONFIG_MK='/tmp/config.mk.transitory'
+    cp ./config/config.mk.in $NEW_CONFIG_MK
+
     # update build_dir to our absolute path
     if [ "$SERVER_TYPE" == "ICAT" ] ; then
         # detect database plugin type
         DATABASE_PLUGIN_TYPE=$2
         # turn on ICAT
         set_tmpfile
-        sed -e "\,RODS_CAT=,s,^.*$,RODS_CAT=1," ./config/config.mk > $TMPFILE
-        mv $TMPFILE ./config/config.mk
-        # set database type
-        if [ "$DATABASE_PLUGIN_TYPE" == "postgres" ] ; then
-            set_tmpfile
-            sed -e "\,^#PSQICAT,s,^.*$,PSQICAT=1," ./config/config.mk > $TMPFILE
-            mv $TMPFILE ./config/config.mk
-        elif [ "$DATABASE_PLUGIN_TYPE" == "mysql" ] ; then
-            set_tmpfile
-            sed -e "\,^#MYICAT=,s,^.*$,MYICAT=1," ./config/config.mk > $TMPFILE
-            mv $TMPFILE ./config/config.mk
-        elif [ "$DATABASE_PLUGIN_TYPE" == "oracle" ] ; then
-            set_tmpfile
-            sed -e "\,^#ORAICAT=,s,^.*$,ORAICAT=1," ./config/config.mk > $TMPFILE
-            mv $TMPFILE ./config/config.mk
-        else
-            echo "unknown database type"
-            exit 1
-        fi
+        sed -e "\,RODS_CAT=,s,^.*$,RODS_CAT=1," $NEW_CONFIG_MK > $TMPFILE
+        mv $TMPFILE $NEW_CONFIG_MK
     fi
 
     # set RELEASE_FLAG accordingly
     if [ "$RELEASE" == "1" ] ; then
         set_tmpfile
-        sed -e "\,^#RELEASE_FLAG=,s,^.*$,RELEASE_FLAG=1," ./config/config.mk > $TMPFILE
-        mv $TMPFILE ./config/config.mk
+        sed -e "\,^#RELEASE_FLAG=,s,^.*$,RELEASE_FLAG=1," $NEW_CONFIG_MK > $TMPFILE
+        mv $TMPFILE $NEW_CONFIG_MK
     fi
+
+    if [ "$DETECTEDOS" == "RedHatCompatible" -o "$DETECTEDOS" == "SuSE" -o "$DETECTEDOS" == "Ubuntu" -o "$DETECTEDOS" == "ArchLinux" -o "$DETECTEDOS" == "Debian" ] ; then
+        OS_PLATFORM="linux_platform"
+    elif [ "$DETECTEDOS" == "MacOSX" ] ; then
+        OS_PLATFORM="osx_platform"
+    elif [ "$DETECTEDOS" == "Solaris" ] ; then
+        OS_PLATFORM="solaris_platform"
+    fi
+    # update os platform to our operating system
+    set_tmpfile
+    sed -e "\,^OS_platform=.*,s,^.*$,OS_platform=$OS_PLATFORM," $NEW_CONFIG_MK > $TMPFILE
+    mv $TMPFILE $NEW_CONFIG_MK
 
     # update build_dir to our absolute path
     set_tmpfile
-    sed -e "\,^IRODS_BUILD_DIR=,s,^.*$,IRODS_BUILD_DIR=$BUILDDIR," ./config/config.mk > $TMPFILE
-    mv $TMPFILE ./config/config.mk
+    sed -e "\,^IRODS_BUILD_DIR=,s,^.*$,IRODS_BUILD_DIR=$BUILDDIR," $NEW_CONFIG_MK > $TMPFILE
+    mv $TMPFILE $NEW_CONFIG_MK
 
     # update cpu count to our detected cpu count
     set_tmpfile
-    sed -e "\,^CPU_COUNT=,s,^.*$,CPU_COUNT=$CPUCOUNT," ./config/config.mk > $TMPFILE
-    mv $TMPFILE ./config/config.mk
+    sed -e "\,^CPU_COUNT=,s,^.*$,CPU_COUNT=$CPUCOUNT," $NEW_CONFIG_MK > $TMPFILE
+    mv $TMPFILE $NEW_CONFIG_MK
 
     # update fullpath for Pam Auth executable
     set_tmpfile
-    sed -e "s,TEMPLATE_IRODS_TOPLEVEL,$detected_irods_home," ./config/config.mk > $TMPFILE
-    mv $TMPFILE ./config/config.mk
+    sed -e "s,TEMPLATE_IRODS_TOPLEVEL,$detected_irods_home," $NEW_CONFIG_MK > $TMPFILE
+    mv $TMPFILE $NEW_CONFIG_MK
 
     # update fullpath for OS Auth executable
     set_tmpfile
-    sed -e "s,TEMPLATE_IRODS_CONFIG_DIR,$detected_irods_config_dir," ./config/config.mk > $TMPFILE
-    mv $TMPFILE ./config/config.mk
+    sed -e "s,TEMPLATE_IRODS_CONFIG_DIR,$detected_irods_config_dir," $NEW_CONFIG_MK > $TMPFILE
+    mv $TMPFILE $NEW_CONFIG_MK
 
     # update fuse header path
     fusedirarray=(${LIBFUSEDEV//\/include\// })  # split on "/include/"
     detected_fuse_dir=${fusedirarray[0]}         # first element
     set_tmpfile
-    sed -e "s,TEMPLATE_IRODS_FUSE_DIR,$detected_fuse_dir," ./config/config.mk > $TMPFILE
-    mv $TMPFILE ./config/config.mk
+    sed -e "s,TEMPLATE_IRODS_FUSE_DIR,$detected_fuse_dir," $NEW_CONFIG_MK > $TMPFILE
+    mv $TMPFILE $NEW_CONFIG_MK
+
+    rsync -c $NEW_CONFIG_MK ./config/config.mk
+    rm $NEW_CONFIG_MK
+
+    NEW_PLATFORM_MK='/tmp/platform.mk.transitory'
+    cp ./config/platform.mk.template $NEW_PLATFORM_MK
 
     # twiddle coverage flag in platform.mk based on whether this is a coverage (gcov) build
     if [ "$COVERAGE" == "1" ] ; then
         set_tmpfile
-        sed -e "s,IRODS_BUILD_COVERAGE=0,IRODS_BUILD_COVERAGE=1," ./config/platform.mk > $TMPFILE
-        mv $TMPFILE ./config/platform.mk
+        sed -e "s,IRODS_BUILD_COVERAGE=0,IRODS_BUILD_COVERAGE=1," $NEW_PLATFORM_MK > $TMPFILE
+        mv $TMPFILE $NEW_PLATFORM_MK
     fi
 
     # twiddle debug flag in platform.mk based on whether this is a release build
     if [ "$RELEASE" == "1" ] ; then
         set_tmpfile
-        sed -e "s,IRODS_BUILD_DEBUG=1,IRODS_BUILD_DEBUG=0," ./config/platform.mk > $TMPFILE
-        mv $TMPFILE ./config/platform.mk
+        sed -e "s,IRODS_BUILD_DEBUG=1,IRODS_BUILD_DEBUG=0," $NEW_PLATFORM_MK > $TMPFILE
+        mv $TMPFILE $NEW_PLATFORM_MK
     fi
+
+    rsync -c $NEW_PLATFORM_MK ./config/platform.mk
+    rm $NEW_PLATFORM_MK
 
     # =-=-=-=-=-=-=-
     # modify the irods_ms_home.hpp file with the proper path to the binary directory

@@ -6,12 +6,15 @@ import subprocess
 import sys
 import shutil
 import pwd
+import grp
+import socket
 
 DEBUG = True
 DEBUG = False
 
 legacy_key_map = {}
 should_be_integers = []
+
 
 def print_debug(*args, **kwargs):
     if DEBUG:
@@ -25,20 +28,25 @@ def print_error(*args, **kwargs):
 def run_in_place():
     return False
 
+
 def already_converted(legacy_file, new_file):
     if os.path.isfile(new_file):
-        print_debug( 'skipping [%s], [%s] already exists.' % (legacy_file, new_file) )
+        print_debug('skipping [%s], [%s] already exists.' % (legacy_file, new_file))
         return True
     return False
+
 
 def get_install_dir():
     return os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 
+
 def get_owner(filename):
     return pwd.getpwuid(os.stat(filename).st_uid).pw_name
 
+
 def get_group(filename):
-    return pwd.getpwuid(os.stat(filename).st_gid).pw_name
+    return grp.getgrgid(os.stat(filename).st_gid).gr_name
+
 
 def get_config_file_path(config_file):
     fullpath = get_install_dir() + '/iRODS/server/config/' + config_file
@@ -75,18 +83,18 @@ def convert_irodshost():
         container_name = json.load(fh)
 
     # convert if necessary
-    if ( not already_converted(legacy_file, new_file) ):
+    if (not already_converted(legacy_file, new_file)):
         print_debug('reading [' + legacy_file + '] begin')
         # read legacy file
         if os.path.isfile(legacy_file):
             with open(legacy_file, 'r') as f:
                 for i, row in enumerate(f):
-                    columns = row.strip().split() # splits on consecutive spaces and tabs
+                    columns = row.strip().split()  # splits on consecutive spaces and tabs
                     # skip comments
-                    if columns[0].startswith('#') or columns[0] == '':
+                    if len(columns) < 2 or columns[0].startswith('#') or columns[0] == '':
                         continue
                     # build new json
-                    print_debug( columns )
+                    print_debug(columns)
                     addresses = []
                     if columns[0] == "localhost":
                         for j in columns[1:]:
@@ -120,18 +128,21 @@ def convert_hostaccesscontrol():
         container_name = json.load(fh)
 
     # convert if necessary
-    if ( not already_converted(legacy_file, new_file) ):
+    if (not already_converted(legacy_file, new_file)):
         print_debug('reading [' + legacy_file + '] begin')
         # read legacy file
         if os.path.isfile(legacy_file):
             with open(legacy_file, 'r') as f:
                 for i, row in enumerate(f):
-                    columns = row.strip().split() # splits on consecutive spaces and tabs
+                    columns = row.strip().split()  # splits on consecutive spaces and tabs
                     # skip comments
-                    if columns[0].startswith('#') or columns[0] == '' or 'acChkHostAccessControl' in columns[0]:
+                    if (len(columns) != 4
+                            or columns[0].startswith('#')
+                            or columns[0] == ''
+                            or 'acChkHostAccessControl' in columns[0]):
                         continue
                     # build new json
-                    print_debug( columns )
+                    print_debug(columns)
                     container_name['access_entries'].append({'user': columns[0], 'group': columns[1], 'address': columns[2], 'mask': columns[3]})
 #                print_debug(json.dumps(container_name, indent=4))
             # write out new file
@@ -185,6 +196,7 @@ should_be_integers.append('irods_encryption_key_size')
 should_be_integers.append('irods_encryption_salt_size')
 should_be_integers.append('irods_encryption_num_hash_rounds')
 
+
 def convert_irodsenv():
     # use irodsEnvFile if defined
     if 'irodsEnvFile' in os.environ:
@@ -194,9 +206,10 @@ def convert_irodsenv():
         legacy_file = get_env_file_path('.irodsEnv')
     new_file = get_install_dir() + '/.irods/irods_environment.json'
     container_name = {}
-    if ( not already_converted(legacy_file, new_file) ):
+    if (not already_converted(legacy_file, new_file)):
 
         # default values
+        container_name['irods_default_hash_scheme'] = 'SHA256'
         container_name['irods_match_hash_policy'] = 'strict'
         container_name['irods_server_control_plane_encryption_algorithm'] = 'AES-256-CBC'
         container_name['irods_server_control_plane_encryption_num_hash_rounds'] = 16
@@ -217,20 +230,27 @@ def convert_irodsenv():
                 for i, row in enumerate(f):
                     columns = row.strip().split()  # splits on consecutive spaces and tabs
                     # skip comments
-                    if columns[0].startswith('#') or columns[0] == '':
+                    if (len(columns) < 1
+                            or columns[0].startswith('#')
+                            or columns[0] == ''):
                         continue
                     # build new json
-                    print_debug( columns )
+                    print_debug(columns)
+                    try:
+                        new_key = legacy_key_map[columns[0]]
+                    except KeyError:
+                        print_debug("skipping invalid key ["+columns[0]+"]")
+                        continue
                     new_value = columns[1].strip('\'')
-                    if legacy_key_map[columns[0]] in should_be_integers:
+                    if new_key in should_be_integers:
                         new_value = int(new_value)
-                    container_name[legacy_key_map[columns[0]]] = new_value
+                    container_name[new_key] = new_value
             # sniff the environment variables, and use them if defined (they take priority)
-            for x in ['irodsUserName','irodsHost','irodsPort','xmsgHost','xmsgPort','irodsHome',
-                        'irodsCwd','irodsAuthScheme','irodsDefResource','irodsZone','irodsServerDn','irodsLogLevel',
-                        'irodsAuthFileName','irodsDebug','irodsClientServerPolicy','irodsClientServerNegotiation','irodsEncryptionKeySize',
-                        'irodsEncryptionSaltSize','irodsEncryptionNumHashRounds','irodsEncryptionAlgorithm','irodsDefaultHashScheme',
-                        'irodsMatchHashPolicy','irodsProt','clientUserName','clientRodsZone']:
+            for x in ['irodsUserName', 'irodsHost', 'irodsPort', 'xmsgHost', 'xmsgPort', 'irodsHome',
+                      'irodsCwd', 'irodsAuthScheme', 'irodsDefResource', 'irodsZone', 'irodsServerDn', 'irodsLogLevel',
+                      'irodsAuthFileName', 'irodsDebug', 'irodsClientServerPolicy', 'irodsClientServerNegotiation', 'irodsEncryptionKeySize',
+                      'irodsEncryptionSaltSize', 'irodsEncryptionNumHashRounds', 'irodsEncryptionAlgorithm', 'irodsDefaultHashScheme',
+                      'irodsMatchHashPolicy', 'irodsProt', 'clientUserName', 'clientRodsZone']:
                 if x in os.environ:
                     container_name[legacy_key_map[x]] = os.environ[x]
             # sniff the ssl-specific environment variables, with defaults if not defined
@@ -297,6 +317,7 @@ should_be_integers.append('server_port_range_start')
 should_be_integers.append('server_port_range_end')
 should_be_integers.append('db_port')
 
+
 def convert_serverconfig_and_irodsconfig():
     #
     # legacy and new file names
@@ -310,9 +331,9 @@ def convert_serverconfig_and_irodsconfig():
         new_server_config_file = '/etc/irods/server_config.json'
         new_database_config_file = '/etc/irods/database_config.json'
 
-    if ( not already_converted(legacy_server_config_fullpath, new_server_config_file)
-         or
-         not already_converted(legacy_server_config_fullpath, new_database_config_file) ):
+    if (not already_converted(legacy_server_config_fullpath, new_server_config_file)
+            or
+            not already_converted(legacy_server_config_fullpath, new_database_config_file)):
 
         #
         # read the templates
@@ -331,42 +352,49 @@ def convert_serverconfig_and_irodsconfig():
             # read the file
             with open(legacy_server_config_fullpath, 'r') as f:
                 for i, row in enumerate(f):
-                    columns = row.strip().split() # splits on consecutive spaces and tabs
-                    # skip comments
-                    if ( len(columns) < 1
-                        or columns[0].startswith('#')
-                        or columns[0] == ''
-                        or 'run_server_as_root' in columns[0]
-                        or columns[0] == 'DBKey'
-                        or columns[0] == 'DBPassword' ):
+                    columns = row.strip().split()  # splits on consecutive spaces and tabs
+                    # skip comments and ignore some deprecated settings
+                    if (len(columns) < 1
+                            or columns[0].startswith('#')
+                            or columns[0] == ''
+                            or columns[0] == 'run_server_as_root'
+                            or columns[0] == 'SIDKey'
+                            or columns[0] == 'DBKey'
+                            or columns[0] == 'DBPassword'):
                         continue
                     # overwrite template json with legacy information
-                    print_debug( columns )
+                    print_debug(columns)
+                    try:
+                        new_key = legacy_key_map[columns[0]]
+                    except KeyError:
+                        print_debug("skipping invalid key ["+columns[0]+"]")
+                        continue
                     new_value = columns[1]
-                    if columns[0] in ['catalog_database_type','DBUsername']:
+                    if columns[0] in ['catalog_database_type', 'DBUsername']:
                         print_debug('========= setting database from legacy')
                         print_debug('===== legacy server.config value == [' + new_value + ']')
-                        if legacy_key_map[columns[0]] in should_be_integers:
+                        if new_key in should_be_integers:
                             new_value = int(new_value)
-                        database_config[legacy_key_map[columns[0]]] = new_value
+                        database_config[new_key] = new_value
 #                        print_debug(json.dumps(database_config, indent=4))
                         print_debug('========= done')
+                    elif columns[0] in ['reRuleSet', 'reFuncMapSet', 'reVariableMapSet']:
+                        server_config[new_key] = []
+                        for j in new_value.split(','):
+                            server_config[new_key].append({'filename': j})
+                    elif columns[0] in ['RemoteZoneSID']:
+                        (j, k) = new_value.split('-')
+                        # use placeholder, fill it in with common negotiation_key after for loop completes
+                        server_config['federation'].append({'icat_host': '', 'zone_name': j, 'zone_key': k, 'negotiation_key': 'placeholder'})
                     else:
-                        if columns[0] in ['reRuleSet','reFuncMapSet','reVariableMapSet']:
-                            server_config[legacy_key_map[columns[0]]] = []
-                            for j in new_value.split(','):
-                                # NOT MOVING TO FULL FILENAMES, STAYING WITH JUST 'core'
-                                #if columns[0] == 'reRuleSet':
-                                    #k = j.strip() + ".re"
-                                #if columns[0] == 'reFuncMapSet':
-                                    #k = j.strip() + ".fnm"
-                                #if columns[0] == 'reVariableMapSet':
-                                    #k = j.strip() + ".dvm"
-                                server_config[legacy_key_map[columns[0]]].append({'filename':j})
-                        else:
-                            if legacy_key_map[columns[0]] in should_be_integers:
-                                new_value = int(new_value)
-                            server_config[legacy_key_map[columns[0]]] = new_value
+                        if new_key in should_be_integers:
+                            new_value = int(new_value)
+                        server_config[new_key] = new_value
+#            print_debug(json.dumps(server_config, indent=4))
+#            print_debug(json.dumps(database_config, indent=4))
+            # update any federation negotiation_keys
+            for z in server_config['federation']:
+                z['negotiation_key'] = server_config['negotiation_key']
 #            print_debug(json.dumps(server_config, indent=4))
 #            print_debug(json.dumps(database_config, indent=4))
         else:
@@ -381,30 +409,37 @@ def convert_serverconfig_and_irodsconfig():
         if os.path.isfile(legacy_irods_config_fullpath):
             with open(legacy_irods_config_fullpath, 'r') as f:
                 for i, row in enumerate(f):
-                    columns = row.strip().split() # splits on consecutive spaces and tabs
+                    columns = row.strip().split()  # splits on consecutive spaces and tabs
                     # skip comments
-                    if ( len(columns) < 1
-                        or columns[0].startswith('#')
-                        or columns[0].startswith('return')
-                        or columns[0] == '' ):
+                    if (len(columns) < 1
+                            or columns[0].startswith('#')
+                            or columns[0].startswith('return')
+                            or columns[0] == ''):
                         continue
                     # overwrite template json with legacy information
-                    print_debug( columns )
-                    new_value = columns[2].strip('";\'') # clean up semicolon and quotes
-                    if columns[0] in ['$IRODS_PORT','$SVR_PORT_RANGE_START','$SVR_PORT_RANGE_END']:
+                    print_debug(columns)
+                    try:
+                        new_key = legacy_key_map[columns[0]]
+                    except KeyError:
+                        print_debug("skipping invalid key ["+columns[0]+"]")
+                        continue
+                    new_value = columns[2].strip('";\'')  # clean up semicolon and quotes
+                    if (new_value == ''):
+                        continue
+                    if columns[0] in ['$IRODS_PORT', '$SVR_PORT_RANGE_START', '$SVR_PORT_RANGE_END']:
                         print_debug('========= setting server from legacy')
                         print_debug('===== legacy irods.config value == [' + new_value + ']')
-                        if legacy_key_map[columns[0]] in should_be_integers:
+                        if new_key in should_be_integers:
                             new_value = int(new_value)
-                        server_config[legacy_key_map[columns[0]]] = new_value
+                        server_config[new_key] = new_value
 #                        print_debug(json.dumps(server_config, indent=4))
                         print_debug('========= done')
-                    if columns[0] in ['$DATABASE_ODBC_TYPE','$DATABASE_HOST','$DATABASE_PORT','$DB_NAME']:
+                    if columns[0] in ['$DATABASE_ODBC_TYPE', '$DATABASE_HOST', '$DATABASE_PORT', '$DB_NAME']:
                         print_debug('========= setting database from legacy')
                         print_debug('===== legacy server.config value == [' + new_value + ']')
-                        if legacy_key_map[columns[0]] in should_be_integers:
+                        if new_key in should_be_integers:
                             new_value = int(new_value)
-                        database_config[legacy_key_map[columns[0]]] = new_value
+                        database_config[new_key] = new_value
 #                        print_debug(json.dumps(database_config, indent=4))
                         print_debug('========= done')
 #            print_debug(json.dumps(server_config, indent=4))
@@ -414,7 +449,7 @@ def convert_serverconfig_and_irodsconfig():
         print_debug('reading [' + legacy_irods_config_fullpath + '] end =========================================================')
 
         # sniff the environment variables, and use them if defined (they take priority)
-        for x in ['spLogLevel','spLogSql','svrPortRangeStart','svrPortRangeEnd']:
+        for x in ['spLogLevel', 'spLogSql', 'svrPortRangeStart', 'svrPortRangeEnd']:
             if x in os.environ:
                 server_config[legacy_key_map[x]] = os.environ[x]
 
@@ -425,14 +460,13 @@ def convert_serverconfig_and_irodsconfig():
 
         # update database password from preinstall script result file
         with open(get_install_dir() + '/plaintext_database_password.txt', 'r') as f:
-            db_password=f.read().replace('\n', '').strip()
+            db_password = f.read().replace('\n', '').strip()
         database_config[legacy_key_map['DBPassword']] = db_password
 
         #
         # write out new files
         #
-        new_owner = get_owner('/etc/irods/core.re')
-        new_group = get_group('/etc/irods/core.re')
+
         # new server_config file
         print_debug('writing [' + new_server_config_file + '] begin')
         with open(new_server_config_file, 'w') as fh:
@@ -442,16 +476,19 @@ def convert_serverconfig_and_irodsconfig():
         else:
             os.chmod(new_server_config_file, 0600)
         print_debug('writing [' + new_server_config_file + '] end')
-        # new database_config file
-        print_debug('writing [' + new_database_config_file + '] begin')
-        with open(new_database_config_file, 'w') as fh:
-            json.dump(database_config, fh, sort_keys=True, indent=4)
-        if (sys.version_info > (3, 0)):
-            os.chmod(new_database_config_file, 0o600)
-        else:
-            os.chmod(new_database_config_file, 0600)
-        print_debug('writing [' + new_database_config_file + '] end')
 
+        # new database_config file
+        if server_config['icat_host'] == 'localhost' or server_config['icat_host'] == socket.gethostname():
+            print_debug('writing [' + new_database_config_file + '] begin')
+            with open(new_database_config_file, 'w') as fh:
+                json.dump(database_config, fh, sort_keys=True, indent=4)
+            if (sys.version_info > (3, 0)):
+                os.chmod(new_database_config_file, 0o600)
+            else:
+                os.chmod(new_database_config_file, 0600)
+            print_debug('writing [' + new_database_config_file + '] end')
+        else:
+            print_debug('resource server - skipping database_config.json')
 
 def convert_legacy_configuration_to_json():
     print_debug('Converting Legacy iRODS Configuration Files...')
@@ -463,6 +500,7 @@ def convert_legacy_configuration_to_json():
     convert_irodsenv()
     # convert server.config to server_config.json
     convert_serverconfig_and_irodsconfig()
+
 
 def main():
     print_debug('-------------------- DEBUG IS ON --------------------')

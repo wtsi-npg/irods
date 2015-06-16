@@ -318,8 +318,8 @@ createBunDirForBulkPut( rsComm_t *rsComm, dataObjInp_t *dataObjInp,
         return status;
     }
     do {
-        snprintf( phyBunDir, MAX_NAME_LEN, "%s/%s.%d", dataObjInfo.filePath,
-                  TMP_PHY_BUN_DIR, ( int ) random() );
+        snprintf( phyBunDir, MAX_NAME_LEN, "%s/%s.%u", dataObjInfo.filePath,
+                  TMP_PHY_BUN_DIR, getRandomInt() );
         path p( phyBunDir );
         if ( exists( p ) ) {
             status = 0;
@@ -544,11 +544,11 @@ bulkProcAndRegSubfile( rsComm_t *rsComm, const char *_resc_name, const std::stri
     else {
         /* make the necessary dir */
         status = mkDirForFilePath(
-            rsComm,
-            0,
-            dataObjInfo.filePath,
-            dataObjInfo.rescHier,
-            getDefDirMode() );
+                     rsComm,
+                     0,
+                     dataObjInfo.filePath,
+                     dataObjInfo.rescHier,
+                     getDefDirMode() );
         if ( status < 0 ) {
             rodsLog( LOG_ERROR, "mkDirForFilePath failed in bulkProcAndRegSubfile with status %d", status );
             return status;
